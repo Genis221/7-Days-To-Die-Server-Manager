@@ -1,0 +1,15 @@
+{
+  "name": "7-days-to-die-server-manager",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Web control panel for 7 Days to Die dedicated servers.",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs --no-open",
+    "check": "node --check server.mjs && node --check public/app.js && node --check sandbox.mjs && node --check dtd-config.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
