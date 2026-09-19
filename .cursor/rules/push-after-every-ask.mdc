@@ -1,0 +1,15 @@
+---
+description: Commit and push to GitHub after finishing each user request
+alwaysApply: true
+---
+
+# Push after every ask
+
+When Dustin’s request is done, if this repo has uncommitted or unpushed work from that request:
+
+1. Stage the relevant files (do not commit secrets).
+2. Create a commit following the existing message style (focus on why).
+3. Push to `origin` on the current branch (`git push origin HEAD`).
+4. If HTTPS fails with OpenSSL issuer errors, retry with `git -c http.sslBackend=schannel push origin HEAD` without changing git config.
+
+Do this even if he did not say “commit” or “push” in that message. Skip only when there is nothing to commit or push.

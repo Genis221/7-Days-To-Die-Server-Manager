@@ -675,6 +675,7 @@ function meterLevel(percent) {
 function updateHostMeters(resources) {
   const cpuLabel = document.getElementById("host-cpu-label");
   const cpuBar = document.getElementById("host-cpu-bar");
+  const cpuDetail = document.getElementById("host-cpu-detail");
   const ramLabel = document.getElementById("host-ram-label");
   const ramBar = document.getElementById("host-ram-bar");
   const ramDetail = document.getElementById("host-ram-detail");
@@ -683,26 +684,56 @@ function updateHostMeters(resources) {
   if (!cpuLabel || !resources) return;
 
   const cpu = resources.cpuPercent;
+  const cpuBits = [];
   if (cpu == null || !Number.isFinite(Number(cpu))) {
-    cpuLabel.textContent = "…";
+    cpuBits.push("…");
     if (cpuBar) cpuBar.style.width = "0%";
     if (cpuMeter) cpuMeter.dataset.level = "";
   } else {
     const pct = Math.max(0, Math.min(100, Number(cpu)));
-    cpuLabel.textContent = `${pct.toFixed(pct >= 10 ? 0 : 1)}% · ${resources.cpuCores || "?"}c`;
+    cpuBits.push(`${pct.toFixed(pct >= 10 ? 0 : 1)}%`);
     if (cpuBar) cpuBar.style.width = `${pct}%`;
     if (cpuMeter) cpuMeter.dataset.level = meterLevel(pct);
   }
+  if (resources.cpuCores) cpuBits.push(`${resources.cpuCores}c`);
+  if (resources.cpuGhzLabel) cpuBits.push(resources.cpuGhzLabel);
+  cpuLabel.textContent = cpuBits.join(" · ");
+  if (cpuDetail) cpuDetail.textContent = resources.cpuModel || "—";
 
   const ramPct = Number(resources.ramUsedPercent);
+  const ramBits = [];
   if (Number.isFinite(ramPct)) {
-    ramLabel.textContent = `${ramPct.toFixed(ramPct >= 10 ? 0 : 1)}%`;
+    ramBits.push(`${ramPct.toFixed(ramPct >= 10 ? 0 : 1)}%`);
     if (ramBar) ramBar.style.width = `${Math.max(0, Math.min(100, ramPct))}%`;
     if (ramMeter) ramMeter.dataset.level = meterLevel(ramPct);
   }
+  if (resources.ramMhzLabel) ramBits.push(resources.ramMhzLabel);
+  ramLabel.textContent = ramBits.join(" · ") || "—";
   if (ramDetail) {
-    ramDetail.textContent = `${resources.ramUsedLabel || "—"} used · ${resources.ramFreeLabel || "—"} free · ${resources.ramTotalLabel || "—"} total`;
+    ramDetail.textContent = [
+      resources.ramUsedLabel ? `${resources.ramUsedLabel} used` : "",
+      resources.ramFreeLabel ? `${resources.ramFreeLabel} free` : "",
+      resources.ramTotalLabel ? `${resources.ramTotalLabel} total` : "",
+      resources.ramMhzLabel
+    ].filter(Boolean).join(" · ") || "—";
   }
+  fillHostSpecs(resources);
+}
+
+function fillHostSpecs(resources) {
+  const cpuEl = document.getElementById("info-cpu");
+  const ramEl = document.getElementById("info-ram");
+  if (!cpuEl || !ramEl) return;
+  const src = resources || window.__dtdHost?.resources || {};
+  cpuEl.textContent = [src.cpuModel, src.cpuGhzLabel, src.cpuCores ? `${src.cpuCores} cores` : ""]
+    .filter(Boolean)
+    .join(" · ") || "—";
+  ramEl.textContent = [
+    src.ramUsedLabel ? `${src.ramUsedLabel} used` : "",
+    src.ramFreeLabel ? `${src.ramFreeLabel} free` : "",
+    src.ramTotalLabel ? `${src.ramTotalLabel} total` : "",
+    src.ramMhzLabel
+  ].filter(Boolean).join(" · ") || "—";
 }
 
 function render() {
@@ -1208,6 +1239,7 @@ document.getElementById("btn-info").addEventListener("click", () => {
       ? `This PC and the internet can use the panel (forward TCP ${host.managerPort || 3240}). LAN examples: ${lans.join(" · ")}`
       : "Listening on all interfaces (0.0.0.0). Forward TCP 3240 for the panel, and UDP 26900-26902 (or your ServerPort range) for 7 Days to Die.";
   }
+  fillHostSpecs(host.resources);
   infoDialog.showModal();
 });
 

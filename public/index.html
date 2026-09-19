@@ -22,12 +22,20 @@
   <body>
     <div class="grain" aria-hidden="true"></div>
     <div class="app">
-      <header class="hud">
+      <aside class="rail">
         <div class="rail-brand">
           <img class="brand-mark" src="/favicon.svg" alt="" width="40" height="40" />
           <div>
             <span class="brand-kicker">Blood moon control</span>
             <strong>7 Days to Die</strong>
+          </div>
+        </div>
+        <div class="rail-tools">
+          <button type="button" class="tool-btn tool-btn-wide" id="btn-restart-manager" title="Restart Server Manager and check for updates">Restart Server Manager</button>
+          <div class="rail-tools-row">
+            <button type="button" class="tool-btn" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">Change to Light mode</button>
+            <button type="button" class="tool-btn" id="btn-copy-settings" title="Copy settings between profiles">Copy Server Settings</button>
+            <button type="button" class="tool-btn ghost" id="btn-info" title="About 7 Days To Die Server Manager">About</button>
           </div>
         </div>
         <section class="host-meters" id="host-meters" aria-label="This PC resources">
@@ -38,6 +46,7 @@
               <strong id="host-cpu-label">—</strong>
             </div>
             <div class="host-meter-track"><i id="host-cpu-bar" style="width:0%"></i></div>
+            <small id="host-cpu-detail" class="host-meter-detail">—</small>
           </div>
           <div class="host-meter" data-meter="ram">
             <div class="host-meter-head">
@@ -48,16 +57,6 @@
             <small id="host-ram-detail" class="host-meter-detail">—</small>
           </div>
         </section>
-        <div class="rail-tools">
-          <button type="button" class="tool-btn tool-btn-wide" id="btn-restart-manager" title="Restart Server Manager and check for updates">Restart Server Manager</button>
-          <div class="rail-tools-row">
-            <button type="button" class="tool-btn" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">Change to Light mode</button>
-            <button type="button" class="tool-btn" id="btn-copy-settings" title="Copy settings between profiles">Copy Server Settings</button>
-            <button type="button" class="tool-btn ghost" id="btn-info" title="About 7 Days To Die Server Manager">About</button>
-          </div>
-        </div>
-      </header>
-      <section class="world-strip">
         <div class="rail-head">
           <span>Worlds</span>
           <div class="rail-head-actions">
@@ -66,7 +65,7 @@
           </div>
         </div>
         <div class="tabs" id="tabs" role="tablist"></div>
-      </section>
+      </aside>
       <main class="workspace" id="workspace">
         <div class="loading-view"><div class="spinner"></div><p>Loading fleet…</p></div>
       </main>
@@ -78,6 +77,10 @@
         <h2>Server Manager</h2>
         <p>Web control panel for 7 Days to Die dedicated servers. It listens on all interfaces so you can reach it from LAN or the internet after you forward TCP 3240. Forward the game UDP range (default 26900-26902) plus telnet/dashboard if you use those.</p>
         <p class="muted">Web edition v1.0</p>
+        <div class="host-specs" id="host-specs">
+          <p><span>CPU</span> <strong id="info-cpu">—</strong></p>
+          <p><span>RAM</span> <strong id="info-ram">—</strong></p>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn secondary" data-close>Close</button>
         </div>

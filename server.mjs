@@ -698,6 +698,31 @@ function formatBytes(bytes) {
 
 let hostCpuSample = null;
 let cachedHostResources = null;
+const hardwareSpecs = {
+  cpuModel: "",
+  cpuSpeedMhz: 0,
+  ramSpeedMhz: 0
+};
+
+function formatGhzFromMhz(mhz) {
+  const n = Number(mhz);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return `${(n / 1000).toFixed(2)} GHz`;
+}
+
+function formatMhzLabel(mhz) {
+  const n = Number(mhz);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return `${Math.round(n)} MHz`;
+}
+
+function applyOsHardwareSpecs() {
+  const cpus = os.cpus();
+  const model = String(cpus[0]?.model || "").replace(/\s+/g, " ").trim();
+  if (model && !hardwareSpecs.cpuModel) hardwareSpecs.cpuModel = model;
+  const mhz = Math.max(0, ...cpus.map(cpu => Number(cpu.speed) || 0));
+  if (mhz > 0 && mhz > hardwareSpecs.cpuSpeedMhz) hardwareSpecs.cpuSpeedMhz = mhz;
+}
 
 function readCpuTimes() {
   let idle = 0;
@@ -711,6 +736,7 @@ function readCpuTimes() {
 }
 
 function refreshHostResources() {
+  applyOsHardwareSpecs();
   const totalMem = os.totalmem();
   const freeMem = os.freemem();
   const usedMem = Math.max(0, totalMem - freeMem);
@@ -722,18 +748,59 @@ function refreshHostResources() {
     cpuPercent = Math.max(0, Math.min(100, Math.round((1 - idleDelta / totalDelta) * 1000) / 10));
   }
   hostCpuSample = now;
+  const cpuModel = String(hardwareSpecs.cpuModel || "")
+    .replace(/\s*@\s*[\d.]+\s*GHz/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
   cachedHostResources = {
     cpuPercent,
     cpuCores: os.cpus().length,
+    cpuModel,
+    cpuGhzLabel: formatGhzFromMhz(hardwareSpecs.cpuSpeedMhz),
     ramTotalBytes: totalMem,
     ramUsedBytes: usedMem,
     ramFreeBytes: freeMem,
     ramUsedPercent: totalMem ? Math.round((usedMem / totalMem) * 1000) / 10 : 0,
     ramTotalLabel: formatBytes(totalMem),
     ramUsedLabel: formatBytes(usedMem),
-    ramFreeLabel: formatBytes(freeMem)
+    ramFreeLabel: formatBytes(freeMem),
+    ramMhzLabel: formatMhzLabel(hardwareSpecs.ramSpeedMhz)
   };
   return cachedHostResources;
+}
+
+async function enrichHardwareFromWindows() {
+  if (process.platform !== "win32") return;
+  try {
+    const { stdout } = await execFileAsync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        [
+          "$cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1",
+          "$rams = @(Get-CimInstance -ClassName Win32_PhysicalMemory)",
+          "$speeds = @($rams | ForEach-Object { if ($_.ConfiguredClockSpeed) { [int]$_.ConfiguredClockSpeed } elseif ($_.Speed) { [int]$_.Speed } else { 0 } })",
+          "$ramMhz = if ($speeds.Count) { ($speeds | Measure-Object -Maximum).Maximum } else { 0 }",
+          "[pscustomobject]@{ name = [string]$cpu.Name; maxMhz = [int]$cpu.MaxClockSpeed; currentMhz = [int]$cpu.CurrentClockSpeed; ramMhz = [int]$ramMhz } | ConvertTo-Json -Compress"
+        ].join("; ")
+      ],
+      { windowsHide: true, timeout: 8000 }
+    );
+    const data = JSON.parse(String(stdout || "").trim());
+    const name = String(data?.name || "").replace(/\s+/g, " ").trim();
+    const maxMhz = Number(data?.maxMhz) || 0;
+    const currentMhz = Number(data?.currentMhz) || 0;
+    const ramMhz = Number(data?.ramMhz) || 0;
+    if (name) hardwareSpecs.cpuModel = name;
+    if (maxMhz > hardwareSpecs.cpuSpeedMhz) hardwareSpecs.cpuSpeedMhz = maxMhz;
+    if (currentMhz > hardwareSpecs.cpuSpeedMhz) hardwareSpecs.cpuSpeedMhz = currentMhz;
+    if (ramMhz > 0) hardwareSpecs.ramSpeedMhz = ramMhz;
+    refreshHostResources();
+  } catch {
+    /* Node os.cpus() / os.totalmem() still fill the HUD */
+  }
 }
 
 function hostPublic() {
@@ -3597,6 +3664,7 @@ async function main() {
     console.log(`  Local:  ${localUrl}`);
     for (const ip of lans) console.log(`  Network: http://${ip}:${PORT}`);
     console.log(`  WAN:     forward TCP ${PORT} here for this panel; 7DTD also needs UDP ${"26900"}-${"26902"} (or your ServerPort range)`);
+    enrichHardwareFromWindows().catch(() => {});
     ensureManagerFirewallPort(PORT).catch(err => {
       console.warn(`[firewall] Could not ensure manager port ${PORT}: ${err.message}`);
     });
