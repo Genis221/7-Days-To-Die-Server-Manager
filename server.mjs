@@ -781,7 +781,7 @@ async function enrichHardwareFromWindows() {
         [
           "$cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1",
           "$rams = @(Get-CimInstance -ClassName Win32_PhysicalMemory)",
-          "$speeds = @($rams | ForEach-Object { if ($_.ConfiguredClockSpeed) { [int]$_.ConfiguredClockSpeed } elseif ($_.Speed) { [int]$_.Speed } else { 0 } })",
+          "$speeds = @($rams | ForEach-Object { if ($_.Speed) { [int]$_.Speed } elseif ($_.ConfiguredClockSpeed) { [int]$_.ConfiguredClockSpeed } else { 0 } })",
           "$ramMhz = if ($speeds.Count) { ($speeds | Measure-Object -Maximum).Maximum } else { 0 }",
           "[pscustomobject]@{ name = [string]$cpu.Name; maxMhz = [int]$cpu.MaxClockSpeed; currentMhz = [int]$cpu.CurrentClockSpeed; ramMhz = [int]$ramMhz } | ConvertTo-Json -Compress"
         ].join("; ")
