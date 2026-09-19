@@ -152,8 +152,10 @@ function Invoke-GitQuiet {
   $previousGcm = $env:GCM_INTERACTIVE
   $env:GIT_TERMINAL_PROMPT = "0"
   $env:GCM_INTERACTIVE = "never"
+  # Windows cert store — OpenSSL on this PC fails GitHub with "unable to get local issuer certificate".
+  $args = @("-c", "http.sslBackend=schannel") + $GitArgs
   try {
-    & git @GitArgs 2>&1 | Out-Null
+    & git @args 2>&1 | Out-Null
     return ($LASTEXITCODE -eq 0)
   } finally {
     if ($null -eq $previousPrompt) { Remove-Item Env:\GIT_TERMINAL_PROMPT -ErrorAction SilentlyContinue }
@@ -166,10 +168,13 @@ function Invoke-GitQuiet {
 function Ensure-7DTDGitRepo {
   Push-Location $projectRoot
   try {
-    if (Invoke-GitQuiet @("rev-parse", "--is-inside-work-tree")) {
+    $alreadyRepo = (Test-Path (Join-Path $projectRoot ".git")) -or (Invoke-GitQuiet @("rev-parse", "--is-inside-work-tree"))
+    if ($alreadyRepo) {
       $originUrl = (git remote get-url origin 2>$null)
       if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($originUrl)) {
         Invoke-GitQuiet @("remote", "add", "origin", $PublicRepoUrl) | Out-Null
+      } elseif ($originUrl.TrimEnd("/") -ne $PublicRepoUrl.TrimEnd("/")) {
+        Invoke-GitQuiet @("remote", "set-url", "origin", $PublicRepoUrl) | Out-Null
       }
       return $true
     }
