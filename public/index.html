@@ -3,38 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#07090d" />
+    <meta name="theme-color" content="#120805" />
     <title>7 Days To Die Server Manager</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
     <script>
       (() => {
         const theme = localStorage.getItem("sevendtd-theme") === "light" ? "light" : "dark";
         document.documentElement.dataset.theme = theme;
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.content = theme === "light" ? "#eef2f4" : "#07090d";
+        if (meta) meta.content = theme === "light" ? "#e4d6c2" : "#120805";
       })();
     </script>
   </head>
   <body>
+    <div class="grain" aria-hidden="true"></div>
     <div class="app">
-      <aside class="rail">
+      <header class="hud">
         <div class="rail-brand">
           <img class="brand-mark" src="/favicon.svg" alt="" width="40" height="40" />
           <div>
-            <span class="brand-kicker">Dedicated control</span>
+            <span class="brand-kicker">Blood moon control</span>
             <strong>7 Days to Die</strong>
-          </div>
-        </div>
-        <div class="rail-tools">
-          <button type="button" class="tool-btn tool-btn-wide" id="btn-restart-manager" title="Restart Server Manager and check for updates">Restart Server Manager</button>
-          <div class="rail-tools-row">
-            <button type="button" class="tool-btn" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">Change to Light mode</button>
-            <button type="button" class="tool-btn" id="btn-copy-settings" title="Copy settings between profiles">Copy Server Settings</button>
-            <button type="button" class="tool-btn ghost" id="btn-info" title="About 7 Days To Die Server Manager">About</button>
           </div>
         </div>
         <section class="host-meters" id="host-meters" aria-label="This PC resources">
@@ -55,15 +48,25 @@
             <small id="host-ram-detail" class="host-meter-detail">—</small>
           </div>
         </section>
+        <div class="rail-tools">
+          <button type="button" class="tool-btn tool-btn-wide" id="btn-restart-manager" title="Restart Server Manager and check for updates">Restart Server Manager</button>
+          <div class="rail-tools-row">
+            <button type="button" class="tool-btn" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">Change to Light mode</button>
+            <button type="button" class="tool-btn" id="btn-copy-settings" title="Copy settings between profiles">Copy Server Settings</button>
+            <button type="button" class="tool-btn ghost" id="btn-info" title="About 7 Days To Die Server Manager">About</button>
+          </div>
+        </div>
+      </header>
+      <section class="world-strip">
         <div class="rail-head">
-          <span>Fleet</span>
+          <span>Worlds</span>
           <div class="rail-head-actions">
             <button type="button" class="tool-btn" id="btn-import" title="Import existing server">Import</button>
             <button type="button" class="plus-btn" id="btn-add" title="New Server" aria-label="New Server">+</button>
           </div>
         </div>
         <div class="tabs" id="tabs" role="tablist"></div>
-      </aside>
+      </section>
       <main class="workspace" id="workspace">
         <div class="loading-view"><div class="spinner"></div><p>Loading fleet…</p></div>
       </main>
@@ -71,7 +74,7 @@
 
     <dialog id="info-dialog" class="modal">
       <div class="modal-body">
-        <p class="modal-kicker">7 Days to Die</p>
+        <p class="modal-kicker">Navezgane</p>
         <h2>Server Manager</h2>
         <p>Web control panel for 7 Days to Die dedicated servers. It listens on all interfaces so you can reach it from LAN or the internet after you forward TCP 3240. Forward the game UDP range (default 26900-26902) plus telnet/dashboard if you use those.</p>
         <p class="muted">Web edition v1.0</p>

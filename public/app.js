@@ -1194,7 +1194,7 @@ function applyTheme(theme) {
     btn.setAttribute("aria-label", nextLabel);
   }
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = value === "light" ? "#eef2f4" : "#07090d";
+  if (meta) meta.content = value === "light" ? "#e4d6c2" : "#120805";
 }
 
 applyTheme(localStorage.getItem("sevendtd-theme") === "light" ? "light" : "dark");
