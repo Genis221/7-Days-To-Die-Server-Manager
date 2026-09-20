@@ -340,8 +340,8 @@ function sandboxCategory(server, category) {
   return opts.map(o => sandboxField(server, o.key)).join("");
 }
 
-function staticTile(title, body) {
-  return `<article class="tile tile-static">
+function staticTile(title, body, extraClass = "") {
+  return `<article class="tile tile-static${extraClass ? ` ${extraClass}` : ""}">
     <header class="tile-head">
       <span class="tile-mark" aria-hidden="true"></span>
       <div class="tile-head-copy">
@@ -444,6 +444,10 @@ function renderServer(server) {
                 </div>
               </div>
               ${server.exe ? `<p class="field-hint">Running: ${escapeHtml(server.exe)}</p>` : `<p class="field-hint">Point this at the folder that contains 7DaysToDieServer.exe, then Attach.</p>`}
+              <label class="field">
+                <span>Launch Arguments</span>
+                <input data-field="launchArgs" value="${escapeHtml(server.launchArgs || "")}" placeholder="-logfile logs\\output_log.txt -quit -batchmode -nographics -configfile=manager-serverconfig.xml -dedicated" />
+              </label>
             `)}
             ${staticTile("SteamCMD", `
               <div class="field">
@@ -458,17 +462,11 @@ function renderServer(server) {
                 <button type="button" class="btn primary" data-action="download-steamcmd">Download SteamCMD</button>
               </div>
             `)}
-            ${staticTile("Launch", `
-              <label class="field">
-                <span>Launch Arguments</span>
-                <input data-field="launchArgs" value="${escapeHtml(server.launchArgs || "")}" placeholder="-logfile logs\\output_log.txt -quit -batchmode -nographics -configfile=manager-serverconfig.xml -dedicated" />
-              </label>
-            `)}
             ${staticTile("Gameplay highlights", `
               <p class="field-hint">These write into SandboxCode for V3+ and also keep legacy V2 xml fields (XP %, loot respawn days, etc). Shop restock is Trader Reset Interval.</p>
               ${featured}
               <label class="field"><span>SandboxCode</span><input data-xml="SandboxCode" value="${escapeHtml(xml.SandboxCode || "")}" /></label>
-            `)}
+            `, "tile-wide")}
             ${staticTile("Identity", xmlGroup(server, "Identity"))}
             ${staticTile("Network & ports", `
               <p class="field-hint">Game port default 26900. Windows Firewall opens UDP/TCP on that port plus UDP +1 and +2, and TCP telnet. Forward those later for internet play. This manager uses TCP 3240.</p>
