@@ -293,12 +293,25 @@ function sandboxField(server, key) {
   const opt = (state.sandboxOptions || []).find(o => o.key === key);
   if (!opt) return "";
   const value = sandboxOf(server)[key] ?? opt.default;
-  const options = opt.values.map(v => {
+  const dayKeys = new Set(["LootRespawnDays", "TraderResetInterval", "VendingResetInterval"]);
+  const values = dayKeys.has(key)
+    ? [...opt.values].sort((a, b) => {
+      const na = Number(a);
+      const nb = Number(b);
+      if (na < 0 && nb < 0) return na - nb;
+      if (na < 0) return -1;
+      if (nb < 0) return 1;
+      return na - nb;
+    })
+    : opt.values;
+  const options = values.map(v => {
     let label = String(v);
     if (typeof v === "boolean") label = v ? "On" : "Off";
-    else if (key === "TraderResetInterval" || key === "VendingResetInterval") label = Number(v) < 0 ? "Game default" : `${v} days`;
-    else if (key === "LootRespawnDays") label = Number(v) < 0 ? "Disabled" : `${v} days`;
-    else if (opt.type === "Float" || key === "XPMultiplier") {
+    else if (key === "TraderResetInterval" || key === "VendingResetInterval") {
+      label = Number(v) < 0 ? "Game default" : `${v} day${Number(v) === 1 ? "" : "s"}`;
+    } else if (key === "LootRespawnDays") {
+      label = Number(v) < 0 ? "Disabled" : `${v} day${Number(v) === 1 ? "" : "s"}`;
+    } else if (opt.type === "Float" || key === "XPMultiplier") {
       const n = Number(v);
       label = n === 0 ? "None" : `${Math.round(n * 100)}%`;
     }

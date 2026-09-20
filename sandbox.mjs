@@ -119,10 +119,10 @@ export function optionChoices(opt) {
       }
     }
     if (opt.key === "TraderResetInterval" || opt.key === "VendingResetInterval") {
-      return { value, label: Number(value) < 0 ? "Default / never override" : `${value} day${value === 1 ? "" : "s"}` };
+      return { value, label: Number(value) < 0 ? "Default / never override" : `${value} day${Number(value) === 1 ? "" : "s"}` };
     }
     if (opt.key === "LootRespawnDays") {
-      return { value, label: Number(value) < 0 ? "Disabled" : `${value} days` };
+      return { value, label: Number(value) < 0 ? "Disabled" : `${value} day${Number(value) === 1 ? "" : "s"}` };
     }
     return { value, label: String(value) };
   });
