@@ -48,6 +48,7 @@ const HOST = process.env.SEVENDTD_HOST || process.env.ICARUS_HOST || "0.0.0.0";
 const ALLOW_REMOTE = process.env.SEVENDTD_ALLOW_REMOTE !== "false" && process.env.ICARUS_ALLOW_REMOTE !== "false";
 const ALLOW_PUBLIC = process.env.SEVENDTD_ALLOW_PUBLIC !== "false" && process.env.ICARUS_ALLOW_PUBLIC !== "false";
 const MAX_BODY = 4 * 1024 * 1024;
+const MAX_MOD_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024;
 const MAX_IMPORT_COPY_BYTES = 20 * 1024 * 1024 * 1024;
 const STEAM_APP_ID = "294420";
 const STEAMCMD_URL = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip";
@@ -589,7 +590,7 @@ function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Last-Event-ID",
+    "Access-Control-Allow-Headers": "Content-Type, Last-Event-ID, X-Filename",
     "Access-Control-Max-Age": "86400"
   };
 }
@@ -3048,6 +3049,64 @@ async function listModFiles(server) {
   return { folder, files };
 }
 
+async function saveRequestToFile(req, dest, limit) {
+  const declared = Number(req.headers["content-length"] || 0);
+  if (declared > limit) {
+    throw Object.assign(new Error("Mod uploads are limited to 2 GB"), { status: 413 });
+  }
+  await mkdir(path.dirname(dest), { recursive: true });
+  const out = createWriteStream(dest);
+  let size = 0;
+  try {
+    for await (const chunk of req) {
+      size += chunk.length;
+      if (size > limit) {
+        throw Object.assign(new Error("Mod uploads are limited to 2 GB"), { status: 413 });
+      }
+      if (!out.write(chunk)) {
+        await new Promise((resolve, reject) => {
+          out.once("drain", resolve);
+          out.once("error", reject);
+        });
+      }
+    }
+    await new Promise((resolve, reject) => {
+      out.end(err => (err ? reject(err) : resolve()));
+    });
+  } catch (err) {
+    out.destroy();
+    await rm(dest, { force: true }).catch(() => {});
+    throw err;
+  }
+}
+
+function uploadedModFileName(req) {
+  const raw = String(req.headers["x-filename"] || "").trim();
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    decoded = raw;
+  }
+  return safeModEntryName(decoded);
+}
+
+async function addModFromUpload(server, req) {
+  const destName = uploadedModFileName(req);
+  if (!destName || !/\.zip$/i.test(destName)) {
+    throw Object.assign(new Error("Upload a .zip of the mod from this computer"), { status: 400 });
+  }
+  const tmp = path.join(DATA_DIR, `upload-mod-${randomUUID()}.zip`);
+  try {
+    await saveRequestToFile(req, tmp, MAX_MOD_UPLOAD_BYTES);
+    const st = await stat(tmp);
+    if (!st.size) throw Object.assign(new Error("Uploaded file was empty"), { status: 400 });
+    return await addModFile(server, { source: tmp, name: destName.replace(/\.zip$/i, "") });
+  } finally {
+    await rm(tmp, { force: true }).catch(() => {});
+  }
+}
+
 async function addModFile(server, { name, source } = {}) {
   const folder = await ensureModsFolder(server);
   let from = String(source || "").trim();
@@ -3625,6 +3684,12 @@ async function handleApi(req, res, url) {
   if (method === "GET" && action === "mods") {
     if (!server.install) return sendJson(res, 400, { error: "Install location is not set" });
     return sendJson(res, 200, await listModFiles(server));
+  }
+  if (method === "POST" && action === "mods/upload") {
+    if (!server.install) return sendJson(res, 400, { error: "Install location is not set" });
+    const filePath = await addModFromUpload(server, req);
+    addActivity(`Uploaded mod ${path.basename(filePath)} for ${server.profile}`, "success");
+    return sendJson(res, 200, { ok: true, path: filePath, ...(await listModFiles(server)) });
   }
   if (method === "POST" && action === "mods") {
     if (!server.install) return sendJson(res, 400, { error: "Install location is not set" });

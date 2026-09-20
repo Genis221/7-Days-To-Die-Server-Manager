@@ -499,17 +499,12 @@ function renderServer(server) {
               </div>
             `)}
             ${collapsibleTile("mods", "Mods", `
-              <p class="field-hint">Copies into this server's Mods folder. Click Add mod to pick a .zip or ModInfo.xml from Downloads (or wherever the file is). You can still paste a folder/.zip path instead. The dedicated server loads Mods\\YourModName\\.</p>
+              <p class="field-hint">From any PC: click Add mod and pick a .zip on that computer. It uploads into this dedicated server's Mods folder (Mods\\YourModName\\). Folder mods should be zipped first.</p>
               <div class="config-file-list" id="mod-file-list"><p class="field-hint">Loading…</p></div>
-              <div class="config-add-row">
-                <label class="field">
-                  <span>Copy from path (optional)</span>
-                  <input id="mod-file-source" placeholder="Leave empty and click Add mod, or paste a path" />
-                </label>
-                <div class="action-row config-add-actions">
-                  <button type="button" class="btn primary" data-action="mod-file-add">Add mod</button>
-                  <button type="button" class="btn secondary" data-action="mod-open-folder">Open Mods folder</button>
-                </div>
+              <input type="file" id="mod-file-upload" class="hidden" accept=".zip,application/zip" />
+              <div class="action-row config-add-actions">
+                <button type="button" class="btn primary" data-action="mod-file-add">Add mod</button>
+                <button type="button" class="btn secondary" data-action="mod-open-folder">Open Mods folder</button>
               </div>
             `)}
             ${collapsibleTile("config-files", "Config files", `
@@ -628,7 +623,7 @@ async function loadModFiles(server) {
     const data = await api(`/api/servers/${server.id}/mods`);
     const files = data.files || [];
     if (!files.length) {
-      el.innerHTML = `<p class="field-hint">Mods folder is ready. Drop a mod folder or .zip below.<br>${escapeHtml(data.folder || "")}</p>`;
+      el.innerHTML = `<p class="field-hint">Mods folder is ready. Add a .zip from this PC.<br>${escapeHtml(data.folder || "")}</p>`;
       return;
     }
     el.innerHTML = files.map(file => `
@@ -1446,17 +1441,11 @@ workspace.addEventListener("click", async event => {
       toast(`Deleted ${name}`);
       await loadConfigFiles(server);
     } else if (action === "mod-file-add") {
-      const source = String(document.getElementById("mod-file-source")?.value || "").trim();
-      toast("Pick a .zip or ModInfo.xml — check the taskbar if the dialog is behind the browser");
-      const result = await api(`/api/servers/${server.id}/mods`, {
-        method: "POST",
-        body: { pick: true, source }
-      });
-      if (result.cancelled) return;
-      toast("Mod added", "success");
-      const input = document.getElementById("mod-file-source");
-      if (input) input.value = "";
-      await loadModFiles(server);
+      if (!String(server.install || "").trim()) {
+        toast("Attach the dedicated server install first", "error");
+        return;
+      }
+      document.getElementById("mod-file-upload")?.click();
     } else if (action === "mod-file-delete") {
       const name = event.target.closest("[data-name]")?.dataset.name;
       const ok = await confirmDanger("Remove mod", `Delete ${name} from Mods?`);
@@ -1557,8 +1546,32 @@ function applyControlPatch(el) {
 }
 
 workspace.addEventListener("input", event => applyControlPatch(event.target));
-workspace.addEventListener("change", event => {
+workspace.addEventListener("change", async event => {
   const el = event.target;
+  if (el?.id === "mod-file-upload") {
+    const file = el.files?.[0];
+    el.value = "";
+    const server = activeServer();
+    if (!file || !server) return;
+    try {
+      toast(`Uploading ${file.name}…`);
+      const res = await fetch(`/api/servers/${server.id}/mods/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Filename": encodeURIComponent(file.name)
+        },
+        body: file
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+      toast("Mod added", "success");
+      await loadModFiles(server);
+    } catch (err) {
+      toast(err.message, "error");
+    }
+    return;
+  }
   if (el?.id === "config-file-preset") {
     document.getElementById("config-custom-wrap")?.classList.toggle("hidden", el.value !== "__custom");
     return;
