@@ -720,6 +720,15 @@ function updateHostMeters(resources) {
   fillHostSpecs(resources);
 }
 
+function updateStartWithWindows(host) {
+  const wrap = document.getElementById("host-startup-wrap");
+  const box = document.getElementById("btn-start-with-windows");
+  if (!wrap || !box) return;
+  const win = String(host?.platform || "").toLowerCase() === "win32";
+  wrap.hidden = !win;
+  if (win) box.checked = host?.startWithWindows !== false;
+}
+
 function fillHostSpecs(resources) {
   const cpuEl = document.getElementById("info-cpu");
   const ramEl = document.getElementById("info-ram");
@@ -761,6 +770,7 @@ async function refreshState({ silent = false } = {}) {
     state.xmlProperties = data.xmlProperties || state.xmlProperties || [];
     window.__dtdHost = data.host || null;
     updateHostMeters(data.host?.resources);
+    updateStartWithWindows(data.host);
     if (!state.servers.find(s => s.id === state.activeId)) {
       state.activeId = state.servers[0]?.id || null;
     }
@@ -1205,6 +1215,21 @@ document.getElementById("import-form").addEventListener("submit", async event =>
   } catch (err) {
     submit.disabled = false;
     toast(err.message, "error");
+  }
+});
+
+document.getElementById("btn-start-with-windows")?.addEventListener("change", async event => {
+  const enabled = Boolean(event.target.checked);
+  event.target.disabled = true;
+  try {
+    await api("/api/manager/startup", { method: "POST", body: { enabled } });
+    if (window.__dtdHost) window.__dtdHost.startWithWindows = enabled;
+    toast(enabled ? "Will start with Windows" : "Won't start with Windows", "success");
+  } catch (err) {
+    event.target.checked = !enabled;
+    toast(err.message, "error");
+  } finally {
+    event.target.disabled = false;
   }
 });
 

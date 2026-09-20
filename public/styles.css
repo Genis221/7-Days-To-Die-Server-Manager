@@ -332,6 +332,22 @@ html[data-theme="light"] .host-meter-track {
   line-height: 1.35;
   white-space: normal;
 }
+.host-startup-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+}
+.host-startup-line input {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+}
+.host-startup-line[hidden] { display: none !important; }
 
 .workspace {
   min-width: 0;

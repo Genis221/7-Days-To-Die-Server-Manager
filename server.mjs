@@ -185,7 +185,7 @@ async function loadState() {
     const raw = await readFile(STATE_FILE, "utf8");
     const parsed = JSON.parse(raw);
     const servers = Array.isArray(parsed.servers) ? parsed.servers.map((s, i) => makeServer({ ...s, order: s.order ?? i })) : [];
-    state = { servers, activity: Array.isArray(parsed.activity) ? parsed.activity.slice(0, 100) : [] };
+    state = { servers, activity: Array.isArray(parsed.activity) ? parsed.activity.slice(0, 100) : [], managerStartWithWindows: parsed.managerStartWithWindows !== false };
     loadedFromState = true;
   } catch {
     // fall through to legacy import
@@ -206,7 +206,8 @@ async function loadState() {
       if (servers.length) {
         state = {
           servers,
-          activity: [{ time: nowIso(), message: "Imported desktop config.json", level: "info" }]
+          activity: [{ time: nowIso(), message: "Imported desktop config.json", level: "info" }],
+          managerStartWithWindows: true
         };
         await persistState(true);
         return;
@@ -217,8 +218,11 @@ async function loadState() {
   }
 
   if (!loadedFromState) {
-    state = { servers: [makeServer()], activity: [] };
+    state = { servers: [makeServer()], activity: [], managerStartWithWindows: true };
     await persistState(true);
+  }
+  if (typeof state.managerStartWithWindows !== "boolean") {
+    state.managerStartWithWindows = true;
   }
 }
 
@@ -233,7 +237,11 @@ async function persistState(force) {
     saveTimer = null;
   }
   await ensureDataDir();
-  const payload = JSON.stringify({ servers: state.servers, activity: state.activity.slice(0, 100) }, null, 2);
+  const payload = JSON.stringify({
+    servers: state.servers,
+    activity: state.activity.slice(0, 100),
+    managerStartWithWindows: state.managerStartWithWindows !== false
+  }, null, 2);
   await writeFile(STATE_FILE, payload, "utf8");
 }
 
@@ -811,6 +819,7 @@ function hostPublic() {
     lanAddresses: lanAddresses(),
     platform: process.platform,
     node: process.version,
+    startWithWindows: state.managerStartWithWindows !== false,
     resources: cachedHostResources || refreshHostResources()
   };
 }
@@ -3159,6 +3168,32 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, await publicStateAsync());
   }
 
+  if (method === "POST" && pathname === "/api/manager/startup") {
+    if (process.platform !== "win32") {
+      return sendJson(res, 400, { error: "Start with Windows is only available on Windows" });
+    }
+    const body = (await readBody(req)) || {};
+    const enabled = body.enabled !== false && body.enabled !== 0 && body.enabled !== "false";
+    state.managerStartWithWindows = Boolean(enabled);
+    scheduleSave();
+    try {
+      await setManagerStartupEnabled(state.managerStartWithWindows);
+    } catch (err) {
+      return sendJson(res, err.status || 500, { error: err.message });
+    }
+    addActivity(
+      state.managerStartWithWindows
+        ? "7 Days To Die Server Manager will start with Windows"
+        : "7 Days To Die Server Manager will no longer start with Windows",
+      "info"
+    );
+    return sendJson(res, 200, {
+      ok: true,
+      enabled: state.managerStartWithWindows,
+      path: windowsStartupLauncherPath()
+    });
+  }
+
   if (method === "POST" && pathname === "/api/manager/restart") {
     const helperCmd = path.join(ROOT, "RestartSevenDaysManager.cmd");
     const helperVbs = path.join(ROOT, "RestartSevenDaysManager.vbs");
@@ -3627,22 +3662,47 @@ async function handler(req, res) {
 
 async function ensureWindowsLogonStart() {
   if (process.platform !== "win32") return;
-  const appData = process.env.APPDATA;
-  if (!appData) return;
-  const startupDir = path.join(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
-  await mkdir(startupDir, { recursive: true });
-  const vbs = path.join(ROOT, "StartSevenDaysManagerAtLogon.vbs");
-  const dest = path.join(startupDir, "7 Days To Die Server Manager.cmd");
-  const body = `@echo off\r\nstart "" /min wscript.exe "${vbs}"\r\n`;
-  let previous = "";
-  try {
-    previous = await readFile(dest, "utf8");
-  } catch {
-    previous = "";
+  await syncManagerWindowsStartup();
+}
+
+function windowsStartupLauncherPath() {
+  const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  return path.join(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "7 Days To Die Server Manager.cmd");
+}
+
+async function setManagerStartupEnabled(enabled) {
+  if (process.platform !== "win32") {
+    throw Object.assign(new Error("Start with Windows is only available on Windows"), { status: 400 });
   }
-  if (previous.replace(/\r\n/g, "\n").trim() !== body.replace(/\r\n/g, "\n").trim()) {
-    await writeFile(dest, body, "utf8");
-    console.log("Windows logon will start 7DTD Manager.");
+  const dest = windowsStartupLauncherPath();
+  if (!enabled) {
+    await rm(dest, { force: true });
+    return false;
+  }
+  const script = path.join(ROOT, "StartSevenDaysManager.ps1");
+  if (!(await pathExists(script))) {
+    throw Object.assign(new Error("StartSevenDaysManager.ps1 was not found"), { status: 500 });
+  }
+  await mkdir(path.dirname(dest), { recursive: true });
+  const body = [
+    "@echo off",
+    "rem Starts 7 Days To Die Server Manager when Windows signs in.",
+    `powershell -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "${script}" -Port ${PORT} -HostAddress "${HOST || "0.0.0.0"}" -NoBrowser`,
+    ""
+  ].join("\r\n");
+  await writeFile(dest, body, "utf8");
+  return true;
+}
+
+async function syncManagerWindowsStartup() {
+  if (process.platform !== "win32") return false;
+  const want = state.managerStartWithWindows !== false;
+  try {
+    const enabled = await setManagerStartupEnabled(want);
+    return enabled;
+  } catch (err) {
+    console.warn(`[startup] Could not ${want ? "enable" : "disable"} Start with Windows: ${err.message}`);
+    return false;
   }
 }
 
