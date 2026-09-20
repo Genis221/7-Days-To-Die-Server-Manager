@@ -341,9 +341,15 @@ function sandboxCategory(server, category) {
 }
 
 function staticTile(title, body) {
-  return `<article class="tile">
-    <h2>${title}</h2>
-    ${body}
+  return `<article class="tile tile-static">
+    <header class="tile-head">
+      <span class="tile-mark" aria-hidden="true"></span>
+      <div class="tile-head-copy">
+        <p class="tile-kicker">Pinned</p>
+        <h2>${title}</h2>
+      </div>
+    </header>
+    <div class="tile-body">${body}</div>
   </article>`;
 }
 
@@ -351,7 +357,11 @@ function collapsibleTile(id, title, body) {
   const open = state.openSections.has(id);
   return `<article class="tile collapsible ${open ? "is-open" : ""}" data-section="${id}">
     <button type="button" class="tile-toggle" data-action="toggle-section" data-section="${id}" aria-expanded="${open ? "true" : "false"}">
-      <h2>${title}</h2>
+      <span class="tile-mark" aria-hidden="true"></span>
+      <div class="tile-head-copy">
+        <p class="tile-kicker">Section</p>
+        <h2>${title}</h2>
+      </div>
       <span class="tile-chevron" aria-hidden="true"></span>
     </button>
     <div class="tile-body">${body}</div>
