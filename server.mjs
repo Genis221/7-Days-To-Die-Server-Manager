@@ -2875,13 +2875,7 @@ async function backupServer(server) {
 async function resolveContentPaksDir(server) {
   const install = String(server.install || "").trim();
   if (!install) return "";
-  const candidates = [
-    path.join(install, "Mods")
-  ];
-  for (const dir of candidates) {
-    if (await pathExists(dir)) return dir;
-  }
-  return candidates[0];
+  return path.join(install, "Mods");
 }
 
 async function ensureModsFolder(server) {
@@ -2891,19 +2885,95 @@ async function ensureModsFolder(server) {
   return mods;
 }
 
-function safeModFileName(name) {
+function safeModEntryName(name) {
   const base = path.basename(String(name || "").trim());
-  if (!/^[A-Za-z0-9][A-Za-z0-9._ \-]{0,120}(\.(dll|zip|txt|xml))?$/i.test(base)) return "";
+  if (!base || base === "." || base === "..") return "";
+  if (/[<>:"/\\|?*\x00-\x1f]/.test(base)) return "";
+  if (base.length > 180) return "";
   return base;
 }
 
 function modFilePath(server, name, folder) {
-  const safe = safeModFileName(name);
+  const safe = safeModEntryName(name);
   if (!safe || !folder) return "";
   const dir = path.resolve(folder);
   const full = path.resolve(dir, safe);
   if (!isPathInside(dir, full)) return "";
   return full;
+}
+
+async function hasModInfo(dir) {
+  try {
+    const names = await readdir(dir);
+    return names.some(n => n.toLowerCase() === "modinfo.xml");
+  } catch {
+    return false;
+  }
+}
+
+async function copyModTree(src, dest) {
+  await copyInstallTree(src, dest, { cancel: false, copiedBytes: 0, copiedFiles: 0, totalBytes: 0, totalFiles: 0 });
+}
+
+async function extractZipToTemp(zipPath) {
+  const tmp = path.join(DATA_DIR, `tmp-mod-${randomUUID()}`);
+  await mkdir(tmp, { recursive: true });
+  try {
+    await execFileAsync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        `Expand-Archive -LiteralPath ${powershellSingleQuote(zipPath)} -DestinationPath ${powershellSingleQuote(tmp)} -Force`
+      ],
+      { windowsHide: true, timeout: 180000 }
+    );
+    return tmp;
+  } catch (err) {
+    await rm(tmp, { recursive: true, force: true }).catch(() => {});
+    throw Object.assign(new Error(`Could not unzip the mod: ${err.message || err}`), { status: 400 });
+  }
+}
+
+async function installModFromDirectory(folder, sourceDir, preferredName) {
+  const installed = [];
+  const destName = safeModEntryName(preferredName) || safeModEntryName(sourceDir);
+  if (await hasModInfo(sourceDir)) {
+    if (!destName) throw Object.assign(new Error("Invalid mod folder name"), { status: 400 });
+    const dest = path.resolve(folder, destName);
+    if (!isPathInside(path.resolve(folder), dest)) throw Object.assign(new Error("Invalid mod folder name"), { status: 400 });
+    if (await pathExists(dest)) await rm(dest, { recursive: true, force: true });
+    await copyModTree(sourceDir, dest);
+    installed.push(dest);
+    return installed;
+  }
+  const entries = await readdir(sourceDir, { withFileTypes: true });
+  const childMods = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const child = path.join(sourceDir, entry.name);
+    if (await hasModInfo(child)) childMods.push(child);
+  }
+  if (childMods.length) {
+    for (const child of childMods) {
+      const name = safeModEntryName(child);
+      if (!name) continue;
+      const dest = path.resolve(folder, name);
+      if (!isPathInside(path.resolve(folder), dest)) continue;
+      if (await pathExists(dest)) await rm(dest, { recursive: true, force: true });
+      await copyModTree(child, dest);
+      installed.push(dest);
+    }
+    if (installed.length) return installed;
+  }
+  if (!destName) throw Object.assign(new Error("Invalid mod folder name"), { status: 400 });
+  const dest = path.resolve(folder, destName);
+  if (!isPathInside(path.resolve(folder), dest)) throw Object.assign(new Error("Invalid mod folder name"), { status: 400 });
+  if (await pathExists(dest)) await rm(dest, { recursive: true, force: true });
+  await copyModTree(sourceDir, dest);
+  installed.push(dest);
+  return installed;
 }
 
 async function listModFiles(server) {
@@ -2912,12 +2982,15 @@ async function listModFiles(server) {
   const entries = await readdir(folder, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isFile() && !entry.isDirectory()) continue;
-    const st = await stat(path.join(folder, entry.name));
+    if (entry.name.startsWith(".")) continue;
+    const full = path.join(folder, entry.name);
+    const st = await stat(full);
+    const modInfo = entry.isDirectory() ? await hasModInfo(full) : false;
     files.push({
       name: entry.name,
       exists: true,
       bytes: st.size,
-      sizeLabel: entry.isDirectory() ? "folder" : formatBytes(st.size),
+      sizeLabel: entry.isDirectory() ? (modInfo ? "mod folder" : "folder") : formatBytes(st.size),
       modified: st.mtime.toISOString()
     });
   }
@@ -2928,27 +3001,32 @@ async function listModFiles(server) {
 async function addModFile(server, { name, source } = {}) {
   const folder = await ensureModsFolder(server);
   const from = String(source || "").trim();
-  if (!from) throw Object.assign(new Error("Paste the path to a mod file or folder to copy in"), { status: 400 });
-  if (!(await pathExists(from))) throw Object.assign(new Error("Source file was not found"), { status: 404 });
+  if (!from) throw Object.assign(new Error("Paste the path to a mod folder or .zip"), { status: 400 });
+  if (!(await pathExists(from))) throw Object.assign(new Error("Source path was not found"), { status: 404 });
   const st = await stat(from);
-  const destName = safeModFileName(name) || safeModFileName(from) || path.basename(from);
-  const dest = path.resolve(folder, destName);
-  if (!isPathInside(path.resolve(folder), dest)) throw Object.assign(new Error("Invalid mod name"), { status: 400 });
   if (st.isDirectory()) {
-    await copyInstallTree(from, dest, { cancel: false, copiedBytes: 0, copiedFiles: 0, totalBytes: 0, totalFiles: 0 });
-    return dest;
+    const installed = await installModFromDirectory(folder, from, name || path.basename(from));
+    return installed[0];
   }
-  if (st.size > 2 * 1024 * 1024 * 1024) throw Object.assign(new Error("Mod files are limited to 2 GB"), { status: 400 });
-  await copyFile(from, dest);
-  return dest;
+  if (!/\.zip$/i.test(from)) {
+    throw Object.assign(new Error("Use a mod folder or a .zip file"), { status: 400 });
+  }
+  const tmp = await extractZipToTemp(from);
+  try {
+    const zipName = path.basename(from, path.extname(from));
+    const installed = await installModFromDirectory(folder, tmp, name || zipName);
+    return installed[0];
+  } finally {
+    await rm(tmp, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 async function deleteModFile(server, name) {
   const folder = await ensureModsFolder(server);
   const filePath = modFilePath(server, name, folder);
-  if (!filePath) throw Object.assign(new Error("Invalid mod filename"), { status: 400 });
-  if (!(await pathExists(filePath))) throw Object.assign(new Error("File is not on disk"), { status: 404 });
-  await rm(filePath, { force: true });
+  if (!filePath) throw Object.assign(new Error("Invalid mod name"), { status: 400 });
+  if (!(await pathExists(filePath))) throw Object.assign(new Error("Mod is not on disk"), { status: 404 });
+  await rm(filePath, { recursive: true, force: true });
   return filePath;
 }
 

@@ -499,16 +499,16 @@ function renderServer(server) {
               </div>
             `)}
             ${collapsibleTile("mods", "Mods", `
-              <p class="field-hint">Mods folder on this install. Copy a mod folder or zip in, or delete it here.</p>
+              <p class="field-hint">Copies into this server's Mods folder (created if missing). Use a mod folder (with ModInfo.xml) or a .zip. The dedicated server loads Mods\\YourModName\\.</p>
               <div class="config-file-list" id="mod-file-list"><p class="field-hint">Loading…</p></div>
               <div class="config-add-row">
                 <label class="field">
                   <span>Copy from path</span>
-                  <input id="mod-file-source" placeholder="C:\\Downloads\\MyMod.pak" />
+                  <input id="mod-file-source" placeholder="C:\\Downloads\\MyMod or C:\\Downloads\\MyMod.zip" />
                 </label>
                 <div class="action-row config-add-actions">
                   <button type="button" class="btn primary" data-action="mod-file-add">Add mod</button>
-                  <button type="button" class="btn secondary" data-action="mod-open-folder">Open folder</button>
+                  <button type="button" class="btn secondary" data-action="mod-open-folder">Open Mods folder</button>
                 </div>
               </div>
             `)}
@@ -628,7 +628,7 @@ async function loadModFiles(server) {
     const data = await api(`/api/servers/${server.id}/mods`);
     const files = data.files || [];
     if (!files.length) {
-      el.innerHTML = `<p class="field-hint">mods folder is ready. No .pak files yet.<br>${escapeHtml(data.folder || "")}</p>`;
+      el.innerHTML = `<p class="field-hint">Mods folder is ready. Drop a mod folder or .zip below.<br>${escapeHtml(data.folder || "")}</p>`;
       return;
     }
     el.innerHTML = files.map(file => `
@@ -1448,7 +1448,7 @@ workspace.addEventListener("click", async event => {
     } else if (action === "mod-file-add") {
       const source = String(document.getElementById("mod-file-source")?.value || "").trim();
       if (!source) {
-        toast("Paste the path to a .pak file", "error");
+        toast("Paste the path to a mod folder or .zip", "error");
         return;
       }
       await api(`/api/servers/${server.id}/mods`, { method: "POST", body: { source } });
@@ -1465,7 +1465,7 @@ workspace.addEventListener("click", async event => {
       await loadModFiles(server);
     } else if (action === "mod-open-folder") {
       await api(`/api/servers/${server.id}/mods/open-folder`, { method: "POST", body: {} });
-      toast("Opened mods folder");
+      toast("Opened Mods folder");
     } else if (action === "attach-install") {
       const target = String(server.install || "").trim();
       if (!target) {
