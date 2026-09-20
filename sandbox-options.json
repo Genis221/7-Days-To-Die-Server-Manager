@@ -329,7 +329,7 @@
   },
   {
     "key": "SkillPointsPerLevel",
-    "label": "Skill Gain Amount",
+    "label": "Skill Points Per Level",
     "id": 117,
     "type": "Int",
     "default": 1,
@@ -341,7 +341,10 @@
       4,
       5,
       6,
-      7
+      7,
+      8,
+      9,
+      10
     ],
     "category": "Player"
   },

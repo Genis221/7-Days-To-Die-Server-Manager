@@ -2,6 +2,7 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const INTERVALS = ["30 mins", "1 hr", "2 hrs", "4 hrs", "6 hrs", "12 hrs", "24 hrs"];
 const FEATURED_SANDBOX = [
   "XPMultiplier",
+  "SkillPointsPerLevel",
   "LootRespawnDays",
   "TraderResetInterval",
   "VendingResetInterval",
@@ -294,16 +295,22 @@ function sandboxField(server, key) {
   if (!opt) return "";
   const value = sandboxOf(server)[key] ?? opt.default;
   const dayKeys = new Set(["LootRespawnDays", "TraderResetInterval", "VendingResetInterval"]);
-  const values = dayKeys.has(key)
-    ? [...opt.values].sort((a, b) => {
+  let values = [...opt.values];
+  if (dayKeys.has(key)) {
+    values.sort((a, b) => {
       const na = Number(a);
       const nb = Number(b);
       if (na < 0 && nb < 0) return na - nb;
       if (na < 0) return -1;
       if (nb < 0) return 1;
       return na - nb;
-    })
-    : opt.values;
+    });
+  }
+  if (key === "SkillPointsPerLevel") {
+    values = values
+      .filter(v => Number(v) >= 1 && Number(v) <= 10)
+      .sort((a, b) => Number(a) - Number(b));
+  }
   const options = values.map(v => {
     let label = String(v);
     if (typeof v === "boolean") label = v ? "On" : "Off";
