@@ -126,7 +126,6 @@ These write SandboxCode (and the matching V2 XML fields where they exist):
 | Control | What it does |
 | --- | --- |
 | XP Multiplier | Player XP rate |
-| Skill Points Per Level | Points awarded per level (UI **1–10**; vanilla SandboxCode documents **1–7**, so **8–10** may cap at 7 until the game adds those steps) |
 | Loot Respawn Days | Including **1–5** plus the official longer values |
 | Trader / vending reset | Shop restock interval (**1–5** days are listed) |
 | Global loot abundance | Loot count multiplier |
@@ -137,7 +136,7 @@ These write SandboxCode (and the matching V2 XML fields where they exist):
 | Air drops | |
 | SandboxCode | Raw V3 string if you want to paste a code |
 
-Everything else in the sandbox catalog is under **Sandbox: …** on the right.
+Everything else in the sandbox catalog is under **Sandbox: …** on the right, including **Skill Points Per Level** (Player; UI **1–10**, vanilla documents **1–7**).
 
 ---
 

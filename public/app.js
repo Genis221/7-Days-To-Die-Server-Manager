@@ -2,7 +2,6 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const INTERVALS = ["30 mins", "1 hr", "2 hrs", "4 hrs", "6 hrs", "12 hrs", "24 hrs"];
 const FEATURED_SANDBOX = [
   "XPMultiplier",
-  "SkillPointsPerLevel",
   "LootRespawnDays",
   "TraderResetInterval",
   "VendingResetInterval",
