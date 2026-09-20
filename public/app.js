@@ -499,12 +499,12 @@ function renderServer(server) {
               </div>
             `)}
             ${collapsibleTile("mods", "Mods", `
-              <p class="field-hint">Copies into this server's Mods folder (created if missing). Use a mod folder (with ModInfo.xml) or a .zip. The dedicated server loads Mods\\YourModName\\.</p>
+              <p class="field-hint">Copies into this server's Mods folder. Click Add mod to pick a .zip or ModInfo.xml from Downloads (or wherever the file is). You can still paste a folder/.zip path instead. The dedicated server loads Mods\\YourModName\\.</p>
               <div class="config-file-list" id="mod-file-list"><p class="field-hint">Loading…</p></div>
               <div class="config-add-row">
                 <label class="field">
-                  <span>Copy from path</span>
-                  <input id="mod-file-source" placeholder="C:\\Downloads\\MyMod or C:\\Downloads\\MyMod.zip" />
+                  <span>Copy from path (optional)</span>
+                  <input id="mod-file-source" placeholder="Leave empty and click Add mod, or paste a path" />
                 </label>
                 <div class="action-row config-add-actions">
                   <button type="button" class="btn primary" data-action="mod-file-add">Add mod</button>
@@ -1447,11 +1447,12 @@ workspace.addEventListener("click", async event => {
       await loadConfigFiles(server);
     } else if (action === "mod-file-add") {
       const source = String(document.getElementById("mod-file-source")?.value || "").trim();
-      if (!source) {
-        toast("Paste the path to a mod folder or .zip", "error");
-        return;
-      }
-      await api(`/api/servers/${server.id}/mods`, { method: "POST", body: { source } });
+      toast("Pick a .zip or ModInfo.xml — check the taskbar if the dialog is behind the browser");
+      const result = await api(`/api/servers/${server.id}/mods`, {
+        method: "POST",
+        body: { pick: true, source }
+      });
+      if (result.cancelled) return;
       toast("Mod added", "success");
       const input = document.getElementById("mod-file-source");
       if (input) input.value = "";

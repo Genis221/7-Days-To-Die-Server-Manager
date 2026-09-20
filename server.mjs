@@ -1103,6 +1103,56 @@ async function browseFolderDialog(title) {
   return { path: selected, cancelled: !selected };
 }
 
+async function browseModSourceDialog(initialPath = "") {
+  if (process.platform !== "win32") {
+    throw Object.assign(new Error("Mod picker is only available on Windows. Paste the path instead."), { status: 400 });
+  }
+  const downloads = path.join(os.homedir(), "Downloads");
+  let initial = String(initialPath || "").trim();
+  if (initial && await pathExists(initial)) {
+    try {
+      if (!(await stat(initial)).isDirectory()) initial = path.dirname(initial);
+    } catch {
+      initial = "";
+    }
+  } else {
+    initial = "";
+  }
+  if (!initial) initial = (await pathExists(downloads)) ? downloads : os.homedir();
+  const script = [
+    "$ErrorActionPreference = 'SilentlyContinue'",
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "[void][System.Windows.Forms.Application]::EnableVisualStyles()",
+    "$owner = New-Object System.Windows.Forms.Form",
+    "$owner.TopMost = $true",
+    "$owner.ShowInTaskbar = $false",
+    "$owner.Opacity = 0",
+    "$owner.Show()",
+    "$owner.Activate()",
+    "$dialog = New-Object System.Windows.Forms.OpenFileDialog",
+    "$dialog.Title = 'Select a 7 Days to Die mod (.zip or ModInfo.xml)'",
+    "$dialog.Filter = 'Mod zip (*.zip)|*.zip|ModInfo.xml|ModInfo.xml|All files (*.*)|*.*'",
+    "$dialog.FilterIndex = 1",
+    "$dialog.Multiselect = $false",
+    "$dialog.RestoreDirectory = $true",
+    `$dialog.InitialDirectory = ${powershellSingleQuote(initial)}`,
+    "$result = $dialog.ShowDialog($owner)",
+    "$chosen = $dialog.FileName",
+    "$owner.Close()",
+    "if ($result -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($chosen) }"
+  ].join("; ");
+  const result = await runCaptured("powershell.exe", ["-NoProfile", "-STA", "-Command", script], 300000);
+  const lines = String(result.output || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  let selected = "";
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (await pathExists(lines[i])) {
+      selected = lines[i];
+      break;
+    }
+  }
+  return { path: selected, cancelled: !selected };
+}
+
 async function updateSessionName(iniPath, sessionName) {
   if (!(await pathExists(iniPath))) return;
   const raw = await readFile(iniPath, "utf8");
@@ -3000,16 +3050,22 @@ async function listModFiles(server) {
 
 async function addModFile(server, { name, source } = {}) {
   const folder = await ensureModsFolder(server);
-  const from = String(source || "").trim();
-  if (!from) throw Object.assign(new Error("Paste the path to a mod folder or .zip"), { status: 400 });
+  let from = String(source || "").trim();
+  if (!from) throw Object.assign(new Error("Pick a mod zip or paste a path"), { status: 400 });
   if (!(await pathExists(from))) throw Object.assign(new Error("Source path was not found"), { status: 404 });
-  const st = await stat(from);
+  let st = await stat(from);
+  if (!st.isDirectory() && !/\.zip$/i.test(from)) {
+    const parent = path.dirname(from);
+    if (parent && (await pathExists(parent)) && (await hasModInfo(parent) || /^modinfo\.xml$/i.test(path.basename(from)))) {
+      from = parent;
+      st = await stat(from);
+    } else {
+      throw Object.assign(new Error("Pick a .zip, a mod folder, or ModInfo.xml inside the mod"), { status: 400 });
+    }
+  }
   if (st.isDirectory()) {
     const installed = await installModFromDirectory(folder, from, name || path.basename(from));
     return installed[0];
-  }
-  if (!/\.zip$/i.test(from)) {
-    throw Object.assign(new Error("Use a mod folder or a .zip file"), { status: 400 });
   }
   const tmp = await extractZipToTemp(from);
   try {
@@ -3571,8 +3627,18 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, await listModFiles(server));
   }
   if (method === "POST" && action === "mods") {
+    if (!server.install) return sendJson(res, 400, { error: "Install location is not set" });
     const body = (await readBody(req)) || {};
-    const filePath = await addModFile(server, body);
+    let source = String(body.source || "").trim();
+    if (body.pick) {
+      if (!isLoopbackRequest(req)) {
+        return sendJson(res, 403, { error: "The mod picker only works from this PC. Paste the path instead." });
+      }
+      const picked = await browseModSourceDialog(source);
+      if (picked.cancelled) return sendJson(res, 200, { ok: true, cancelled: true, ...(await listModFiles(server).catch(() => ({ folder: "", files: [] }))) });
+      source = picked.path;
+    }
+    const filePath = await addModFile(server, { ...body, source });
     addActivity(`Added mod ${path.basename(filePath)} for ${server.profile}`, "success");
     return sendJson(res, 200, { ok: true, path: filePath, ...(await listModFiles(server)) });
   }
