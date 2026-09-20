@@ -301,6 +301,27 @@ exit 0
   }
 }
 
+function Ensure-WindowsStartup {
+  $startup = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup"
+  if (-not (Test-Path $startup)) {
+    New-Item -ItemType Directory -Path $startup -Force | Out-Null
+  }
+  $vbs = Join-Path $projectRoot "StartSevenDaysManagerAtLogon.vbs"
+  $cmdPath = Join-Path $startup "7 Days To Die Server Manager.cmd"
+  $body = @(
+    "@echo off",
+    "start `"`" /min wscript.exe `"$vbs`""
+  ) -join "`r`n"
+  $existing = ""
+  if (Test-Path $cmdPath) {
+    $existing = [System.IO.File]::ReadAllText($cmdPath)
+  }
+  if ($existing.Trim() -ne $body.Trim()) {
+    [System.IO.File]::WriteAllText($cmdPath, $body + "`r`n")
+  }
+  Write-Host "Windows logon will start 7DTD Manager." -ForegroundColor Green
+}
+
 Write-Host "Preparing 7 Days To Die Server Manager..." -ForegroundColor Cyan
 if (-not (Ensure-Git)) {
   Write-Host "Git is missing. Auto-update will be unavailable until Git is installed." -ForegroundColor Yellow
@@ -309,6 +330,8 @@ if (-not (Ensure-Node)) {
   Write-Host "Node.js 20+ is required. Install from https://nodejs.org then run this launcher again." -ForegroundColor Red
   exit 1
 }
+
+Ensure-WindowsStartup
 
 $didUpdate = Update-7DTDManagerFromGit
 

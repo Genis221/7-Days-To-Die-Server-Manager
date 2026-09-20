@@ -3625,6 +3625,27 @@ async function handler(req, res) {
   }
 }
 
+async function ensureWindowsLogonStart() {
+  if (process.platform !== "win32") return;
+  const appData = process.env.APPDATA;
+  if (!appData) return;
+  const startupDir = path.join(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Startup");
+  await mkdir(startupDir, { recursive: true });
+  const vbs = path.join(ROOT, "StartSevenDaysManagerAtLogon.vbs");
+  const dest = path.join(startupDir, "7 Days To Die Server Manager.cmd");
+  const body = `@echo off\r\nstart "" /min wscript.exe "${vbs}"\r\n`;
+  let previous = "";
+  try {
+    previous = await readFile(dest, "utf8");
+  } catch {
+    previous = "";
+  }
+  if (previous.replace(/\r\n/g, "\n").trim() !== body.replace(/\r\n/g, "\n").trim()) {
+    await writeFile(dest, body, "utf8");
+    console.log("Windows logon will start 7DTD Manager.");
+  }
+}
+
 async function main() {
   await loadState();
   for (const server of state.servers) runtimeOf(server.id);
@@ -3665,6 +3686,9 @@ async function main() {
     for (const ip of lans) console.log(`  Network: http://${ip}:${PORT}`);
     console.log(`  WAN:     forward TCP ${PORT} here for this panel; 7DTD also needs UDP ${"26900"}-${"26902"} (or your ServerPort range)`);
     enrichHardwareFromWindows().catch(() => {});
+    ensureWindowsLogonStart().catch(err => {
+      console.warn(`[startup] Could not register Windows logon start: ${err.message}`);
+    });
     ensureManagerFirewallPort(PORT).catch(err => {
       console.warn(`[firewall] Could not ensure manager port ${PORT}: ${err.message}`);
     });
