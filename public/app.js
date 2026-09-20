@@ -467,32 +467,40 @@ function renderServer(server) {
               ${featured}
               <label class="field"><span>SandboxCode</span><input data-xml="SandboxCode" value="${escapeHtml(xml.SandboxCode || "")}" /></label>
             `, "tile-wide")}
-            ${staticTile("Identity", xmlGroup(server, "Identity"))}
-            ${staticTile("Network & ports", `
+          </div>
+          <div class="overview-extras">
+            ${collapsibleTile("identity", "Identity", xmlGroup(server, "Identity"))}
+            ${collapsibleTile("network", "Network & ports", `
               <p class="field-hint">Game port default 26900. Windows Firewall opens UDP/TCP on that port plus UDP +1 and +2, and TCP telnet. Forward those later for internet play. This manager uses TCP 3240.</p>
               ${xmlGroup(server, "Network")}
             `)}
-            ${staticTile("Slots", xmlGroup(server, "Slots"))}
-          </div>
-          <div class="overview-extras">
-            ${collapsibleTile("admin", "Admin / telnet / dashboard", xmlGroup(server, "Admin"))}
-            ${collapsibleTile("world", "World save", xmlGroup(server, "World") + xmlGroup(server, "Folders"))}
-            ${collapsibleTile("rules", "Remaining xml rules", xmlGroup(server, "Rules") + xmlGroup(server, "Security"))}
-            ${collapsibleTile("performance", "Performance", xmlGroup(server, "Performance"))}
-            ${collapsibleTile("claims", "Land claims", xmlGroup(server, "Land claims"))}
-            ${collapsibleTile("mesh", "Dynamic mesh", xmlGroup(server, "Dynamic mesh") + xmlGroup(server, "Twitch"))}
-            ${categories.map(cat => collapsibleTile(`sandbox-${cat}`, `Sandbox: ${cat}`, sandboxCategory(server, cat))).join("")}
-            ${collapsibleTile("autostart", "Automatic start", `
-              <div class="day-row">${dayChecks("autostartDays", server.autostartDays)}</div>
-              <label class="field"><span>Start Server at</span><input type="time" data-field="autostartTime" value="${escapeHtml(toTimeInput(server.autostartTime))}" /></label>
-              <label class="check-line"><input type="checkbox" data-field="autostartUpdate" ${server.autostartUpdate ? "checked" : ""} /> Update before start</label>
-            `)}
+            ${collapsibleTile("slots", "Slots", xmlGroup(server, "Slots"))}
             ${collapsibleTile("shutdown", "Shutdown / restart", `
               <div class="day-row">${dayChecks("shutdownDays", server.shutdownDays)}</div>
               <label class="field"><span>Shutdown at</span><input type="time" data-field="shutdownTime" value="${escapeHtml(toTimeInput(server.shutdownTime))}" /></label>
               <label class="check-line"><input type="checkbox" data-field="performUpdate" ${server.performUpdate ? "checked" : ""} /> Perform update</label>
               <label class="check-line"><input type="checkbox" data-field="thenRestart" ${server.thenRestart ? "checked" : ""} /> Then restart</label>
             `)}
+            ${collapsibleTile("autostart", "Automatic start", `
+              <div class="day-row">${dayChecks("autostartDays", server.autostartDays)}</div>
+              <label class="field"><span>Start Server at</span><input type="time" data-field="autostartTime" value="${escapeHtml(toTimeInput(server.autostartTime))}" /></label>
+              <label class="check-line"><input type="checkbox" data-field="autostartUpdate" ${server.autostartUpdate ? "checked" : ""} /> Update before start</label>
+            `)}
+            ${collapsibleTile("mods", "Mods", `
+              <p class="field-hint">From any PC: click Add mod and pick a .zip on that computer. It uploads into this dedicated server's Mods folder (Mods\\YourModName\\). Folder mods should be zipped first.</p>
+              <div class="config-file-list" id="mod-file-list"><p class="field-hint">Loading…</p></div>
+              <input type="file" id="mod-file-upload" class="hidden" accept=".zip,application/zip" />
+              <div class="action-row config-add-actions">
+                <button type="button" class="btn primary" data-action="mod-file-add">Add mod</button>
+                <button type="button" class="btn secondary" data-action="mod-open-folder">Open Mods folder</button>
+              </div>
+            `)}
+            ${collapsibleTile("admin", "Admin / telnet / dashboard", xmlGroup(server, "Admin"))}
+            ${collapsibleTile("world", "World save", xmlGroup(server, "World") + xmlGroup(server, "Folders"))}
+            ${collapsibleTile("rules", "Remaining xml rules", xmlGroup(server, "Rules") + xmlGroup(server, "Security"))}
+            ${collapsibleTile("performance", "Performance", xmlGroup(server, "Performance"))}
+            ${collapsibleTile("claims", "Land claims", xmlGroup(server, "Land claims"))}
+            ${collapsibleTile("mesh", "Dynamic mesh", xmlGroup(server, "Dynamic mesh") + xmlGroup(server, "Twitch"))}
             ${collapsibleTile("backups", "World backups", `
               <label class="field">
                 <span>Interval</span>
@@ -511,15 +519,6 @@ function renderServer(server) {
               <div class="action-row">
                 <button type="button" class="btn primary" data-action="backup" ${server.backupInProgress ? "disabled" : ""}>Backup Now</button>
                 <label class="check-line"><input type="checkbox" data-field="autoBackupEnabled" ${server.autoBackupEnabled ? "checked" : ""} /> Enable Auto Backup</label>
-              </div>
-            `)}
-            ${collapsibleTile("mods", "Mods", `
-              <p class="field-hint">From any PC: click Add mod and pick a .zip on that computer. It uploads into this dedicated server's Mods folder (Mods\\YourModName\\). Folder mods should be zipped first.</p>
-              <div class="config-file-list" id="mod-file-list"><p class="field-hint">Loading…</p></div>
-              <input type="file" id="mod-file-upload" class="hidden" accept=".zip,application/zip" />
-              <div class="action-row config-add-actions">
-                <button type="button" class="btn primary" data-action="mod-file-add">Add mod</button>
-                <button type="button" class="btn secondary" data-action="mod-open-folder">Open Mods folder</button>
               </div>
             `)}
             ${collapsibleTile("config-files", "Config files", `
@@ -558,6 +557,7 @@ function renderServer(server) {
                 <input class="inline-input" data-field="updateLogLocation" value="${escapeHtml(server.updateLogLocation || "")}" />
               </div>
             `)}
+            ${categories.map(cat => collapsibleTile(`sandbox-${cat}`, `Sandbox: ${cat}`, sandboxCategory(server, cat))).join("")}
           </div>
         </div>
       </section>
