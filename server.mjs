@@ -70,9 +70,10 @@ const mime = {
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json",
+  ".webmanifest": "application/manifest+json",
   ".png": "image/png",
-  ".jpg": "image/svg+xml",
-  ".jpeg": "image/svg+xml",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
   ".ico": "image/x-icon",
   ".svg": "image/svg+xml"
 };
@@ -3330,7 +3331,19 @@ async function serveStatic(req, res, urlPath) {
   try {
     const data = await readFile(filePath);
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, { "Content-Type": mime[ext] || "application/octet-stream", ...corsHeaders() });
+    const headers = {
+      "Content-Type": mime[ext] || "application/octet-stream",
+      ...corsHeaders()
+    };
+    // Keep the service worker and manifest fresh so installs pick up updates.
+    if (rel === "/sw.js" || rel === "/manifest.webmanifest") {
+      headers["Cache-Control"] = "no-cache";
+    }
+    // Android Chrome expects Service-Worker-Allowed at the app root.
+    if (rel === "/sw.js") {
+      headers["Service-Worker-Allowed"] = "/";
+    }
+    res.writeHead(200, headers);
     res.end(data);
   } catch {
     if (rel !== "/index.html") {

@@ -208,6 +208,32 @@ Checkbox on the left rail. When on, a hidden launcher is written to the Windows 
 
 ---
 
+## Progressive Web App (Install / Add to Home Screen)
+
+The panel is installable as a PWA:
+
+- `public/manifest.webmanifest` — name, theme, standalone display, icons
+- `public/sw.js` — caches the UI shell; `/api/*` always goes to the live server
+- Icons under `public/icons/` (192 / 512 / Apple touch)
+
+**Install app** appears in the left rail when the browser can install (Chrome / Edge install prompt), or as a helper on plain HTTP so you can open Android’s menu.
+
+| How you open the panel | What Android does |
+| --- | --- |
+| `http://127.0.0.1:3240` on the phone (ADB reverse, etc.) | Full **Install app** prompt when criteria are met |
+| `https://…` (reverse proxy / tunnel) | Full **Install app** prompt |
+| `http://192.168.x.x:3240` on LAN | Chrome usually skips the install prompt (not a secure context). Use browser menu → **Add to Home screen** / **Install app** |
+
+Once installed, it opens fullscreen (standalone) with the DAY 7 icon.
+
+Regenerate icons after a brand change:
+
+```text
+powershell -ExecutionPolicy Bypass -File tools\make-pwa-icons.ps1
+```
+
+---
+
 ## Environment
 
 | Variable | Default | Purpose |
@@ -235,7 +261,17 @@ Runtime data (`data/`, including `state.json`) is gitignored.
 ├── StartSevenDaysManager.ps1
 ├── RestartSevenDaysManager.cmd
 ├── RestartSevenDaysManager.vbs
-├── public/                         # UI
+├── tools/
+│   ├── make-pwa-icons.ps1
+│   └── parse-sandbox.mjs
+├── public/                         # UI + PWA
+│   ├── index.html
+│   ├── app.js
+│   ├── styles.css
+│   ├── sw.js
+│   ├── manifest.webmanifest
+│   ├── favicon.svg
+│   └── icons/
 └── data/                           # Runtime (gitignored)
 ```
 

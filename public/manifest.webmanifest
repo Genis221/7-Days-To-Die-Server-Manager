@@ -1,0 +1,34 @@
+{
+  "id": "/",
+  "name": "7 Days To Die Server Manager",
+  "short_name": "7DTD Manager",
+  "description": "Web control panel for 7 Days to Die dedicated servers.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0504",
+  "theme_color": "#120805",
+  "lang": "en",
+  "categories": ["games", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
