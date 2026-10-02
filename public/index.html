@@ -70,6 +70,7 @@
           </div>
           <div class="rail-auth" id="rail-auth" hidden>
             <span class="rail-auth-user" id="rail-auth-user"></span>
+            <button type="button" class="tool-btn tool-btn-wide" id="btn-accounts" title="Change password and manage operators">Accounts</button>
             <button type="button" class="tool-btn tool-btn-wide" id="btn-logout" title="Sign out of this device">Sign out</button>
           </div>
           <button type="button" class="tool-btn tool-btn-wide hidden" id="btn-install-app" title="Install this panel as an app on this device">Install app</button>
@@ -120,6 +121,36 @@
         <div class="host-specs" id="host-specs">
           <p><span>CPU</span> <strong id="info-cpu">—</strong></p>
           <p><span>RAM</span> <strong id="info-ram">—</strong></p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn secondary" data-close>Close</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="accounts-dialog" class="modal accounts-modal">
+      <div class="modal-body">
+        <p class="modal-kicker">Operators</p>
+        <h2>Accounts</h2>
+        <p class="field-hint">Signed in as <strong id="account-signed-as">—</strong>. Passwords must be at least 10 characters.</p>
+        <form id="change-password-form" class="accounts-form">
+          <label class="field"><span>Current password</span><input name="currentPassword" type="password" autocomplete="current-password" required /></label>
+          <label class="field"><span>New password</span><input name="newPassword" type="password" autocomplete="new-password" required minlength="10" /></label>
+          <label class="field"><span>Confirm new password</span><input name="confirmPassword" type="password" autocomplete="new-password" required minlength="10" /></label>
+          <div class="action-row">
+            <button type="submit" class="btn primary">Change password</button>
+            <button type="button" class="btn secondary" data-action="logout-all">Sign out everywhere</button>
+          </div>
+        </form>
+        <div id="accounts-admin" class="hidden">
+          <p class="field-hint">Admins can add operators. Do not share passwords.</p>
+          <div class="account-list" id="account-list"><p class="field-hint">Loading…</p></div>
+          <form id="create-user-form" class="accounts-form">
+            <label class="field"><span>Username</span><input name="username" required maxlength="32" pattern="[A-Za-z0-9._\-]{3,32}" placeholder="operator1" /></label>
+            <label class="field"><span>Temporary password</span><input name="password" type="password" required minlength="10" autocomplete="new-password" /></label>
+            <label class="field"><span>Role</span><select name="role"><option value="operator">Operator</option><option value="admin">Admin</option></select></label>
+            <div class="action-row"><button type="submit" class="btn secondary">Add account</button></div>
+          </form>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn secondary" data-close>Close</button>

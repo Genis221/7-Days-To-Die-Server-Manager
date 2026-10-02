@@ -171,6 +171,16 @@ body.auth-locked .login-gate { display: grid; }
   white-space: nowrap;
 }
 .accounts-form { display: grid; gap: 8px; }
+.accounts-modal .modal-body { max-width: 440px; }
+.accounts-modal .accounts-form { margin-top: 8px; }
+#accounts-admin {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+}
+#accounts-admin.hidden { display: none; }
 .account-list { display: grid; gap: 6px; }
 .account-row {
   display: flex;

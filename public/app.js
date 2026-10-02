@@ -41,6 +41,7 @@ const workspace = document.getElementById("workspace");
 const tabsEl = document.getElementById("tabs");
 const toastStack = document.getElementById("toast-stack");
 const infoDialog = document.getElementById("info-dialog");
+const accountsDialog = document.getElementById("accounts-dialog");
 const importDialog = document.getElementById("import-dialog");
 const copyDialog = document.getElementById("copy-dialog");
 const confirmDialog = document.getElementById("confirm-dialog");
@@ -109,6 +110,12 @@ function showLoginError(message) {
 async function loadAccountUsers() {
   const list = document.getElementById("account-list");
   const adminWrap = document.getElementById("accounts-admin");
+  const signedAs = document.getElementById("account-signed-as");
+  if (signedAs) {
+    signedAs.textContent = state.user?.username
+      ? `${state.user.username} (${state.user.role || "operator"})`
+      : "—";
+  }
   if (adminWrap) adminWrap.classList.toggle("hidden", !isAdmin());
   if (!list || !isAdmin()) return;
   try {
@@ -129,6 +136,13 @@ async function loadAccountUsers() {
   } catch (err) {
     list.innerHTML = `<p class="field-hint">${escapeHtml(err.message)}</p>`;
   }
+}
+
+async function openAccountsDialog() {
+  document.getElementById("change-password-form")?.reset();
+  document.getElementById("create-user-form")?.reset();
+  await loadAccountUsers();
+  accountsDialog?.showModal();
 }
 
 function activeServer() {
@@ -552,28 +566,6 @@ function renderServer(server) {
                 <button type="button" class="btn secondary" data-action="mod-open-folder">Open Mods folder</button>
               </div>
             `)}
-            ${collapsibleTile("accounts", "Accounts", `
-              <p class="field-hint">Signed in as <strong id="account-signed-as">${escapeHtml(state.user?.username || "—")}</strong> (${escapeHtml(state.user?.role || "operator")}). Passwords must be at least 10 characters.</p>
-              <form id="change-password-form" class="accounts-form">
-                <label class="field"><span>Current password</span><input name="currentPassword" type="password" autocomplete="current-password" required /></label>
-                <label class="field"><span>New password</span><input name="newPassword" type="password" autocomplete="new-password" required minlength="10" /></label>
-                <label class="field"><span>Confirm new password</span><input name="confirmPassword" type="password" autocomplete="new-password" required minlength="10" /></label>
-                <div class="action-row">
-                  <button type="submit" class="btn primary">Change password</button>
-                  <button type="button" class="btn secondary" data-action="logout-all">Sign out everywhere</button>
-                </div>
-              </form>
-              <div id="accounts-admin" class="${state.user?.role === "admin" ? "" : "hidden"}">
-                <p class="field-hint">Admins can add operators. Do not share passwords.</p>
-                <div class="account-list" id="account-list"><p class="field-hint">Loading…</p></div>
-                <form id="create-user-form" class="accounts-form">
-                  <label class="field"><span>Username</span><input name="username" required maxlength="32" pattern="[A-Za-z0-9._\\-]{3,32}" placeholder="operator1" /></label>
-                  <label class="field"><span>Temporary password</span><input name="password" type="password" required minlength="10" autocomplete="new-password" /></label>
-                  <label class="field"><span>Role</span><select name="role"><option value="operator">Operator</option><option value="admin">Admin</option></select></label>
-                  <div class="action-row"><button type="submit" class="btn secondary">Add account</button></div>
-                </form>
-              </div>
-            `)}
             ${collapsibleTile("admin", "Admin / telnet / dashboard", xmlGroup(server, "Admin"))}
             ${collapsibleTile("world", "World save", xmlGroup(server, "World") + xmlGroup(server, "Folders"))}
             ${collapsibleTile("rules", "Remaining xml rules", xmlGroup(server, "Rules") + xmlGroup(server, "Security"))}
@@ -664,7 +656,6 @@ function renderServer(server) {
   connectConsole(server.id);
   loadConfigFiles(server);
   loadModFiles(server);
-  if (state.openSections.has("accounts")) loadAccountUsers();
 }
 
 function configFileListHtml(files, folder) {
@@ -1542,7 +1533,6 @@ workspace.addEventListener("click", async event => {
     tile?.classList.toggle("is-open", open);
     const btn = tile?.querySelector(".tile-toggle");
     if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
-    if (open && id === "accounts") loadAccountUsers();
     return;
   }
 
@@ -1612,25 +1602,6 @@ workspace.addEventListener("click", async event => {
     } else if (action === "mod-open-folder") {
       await api(`/api/servers/${server.id}/mods/open-folder`, { method: "POST", body: {} });
       toast("Opened Mods folder");
-    } else if (action === "logout-all") {
-      const ok = await confirmDanger("Sign out everywhere", "End every signed-in session for your account on all devices?");
-      if (!ok) return;
-      await api("/api/auth/logout-all", { method: "POST", body: {} });
-      if (state.pollTimer) {
-        clearInterval(state.pollTimer);
-        state.pollTimer = null;
-      }
-      state.user = null;
-      setSignedIn(false);
-      toast("Signed out everywhere");
-    } else if (action === "delete-user") {
-      const id = event.target.closest("[data-id]")?.dataset.id;
-      const name = event.target.closest("[data-name]")?.dataset.name || "this account";
-      const ok = await confirmDanger("Remove account", `Delete operator “${name}”? They will be signed out immediately.`);
-      if (!ok) return;
-      await api(`/api/auth/users/${id}`, { method: "DELETE" });
-      toast(`Removed ${name}`);
-      await loadAccountUsers();
     } else if (action === "attach-install") {
       const target = String(server.install || "").trim();
       if (!target) {
@@ -1798,7 +1769,41 @@ document.getElementById("btn-logout")?.addEventListener("click", async () => {
   toast("Signed out");
 });
 
-workspace.addEventListener("submit", async event => {
+document.getElementById("btn-accounts")?.addEventListener("click", () => {
+  openAccountsDialog().catch(err => toast(err.message, "error"));
+});
+
+accountsDialog?.addEventListener("click", async event => {
+  const action = event.target.closest("[data-action]")?.dataset.action;
+  if (!action) return;
+  try {
+    if (action === "logout-all") {
+      const ok = await confirmDanger("Sign out everywhere", "End every signed-in session for your account on all devices?");
+      if (!ok) return;
+      await api("/api/auth/logout-all", { method: "POST", body: {} });
+      if (state.pollTimer) {
+        clearInterval(state.pollTimer);
+        state.pollTimer = null;
+      }
+      state.user = null;
+      accountsDialog.close();
+      setSignedIn(false);
+      toast("Signed out everywhere");
+    } else if (action === "delete-user") {
+      const id = event.target.closest("[data-id]")?.dataset.id;
+      const name = event.target.closest("[data-name]")?.dataset.name || "this account";
+      const ok = await confirmDanger("Remove account", `Delete operator “${name}”? They will be signed out immediately.`);
+      if (!ok) return;
+      await api(`/api/auth/users/${id}`, { method: "DELETE" });
+      toast(`Removed ${name}`);
+      await loadAccountUsers();
+    }
+  } catch (err) {
+    toast(err.message, "error");
+  }
+});
+
+accountsDialog?.addEventListener("submit", async event => {
   if (event.target?.id === "change-password-form") {
     event.preventDefault();
     const form = event.target;

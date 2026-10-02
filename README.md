@@ -105,16 +105,15 @@ Right column (collapsible), top to bottom:
 4. Shutdown / restart  
 5. Automatic start  
 6. Mods  
-7. Accounts (password + operators)  
-8. Admin / telnet / dashboard  
-9. World save  
-10. Remaining XML rules  
-11. Performance  
-12. Land claims  
-13. Dynamic mesh  
-14. World backups  
-15. Config files  
-16. Sandbox categories (Player, Entities, World, Resources, Crafting, Traders, Tasks, Misc)
+7. Admin / telnet / dashboard  
+8. World save  
+9. Remaining XML rules  
+10. Performance  
+11. Land claims  
+12. Dynamic mesh  
+13. World backups  
+14. Config files  
+15. Sandbox categories (Player, Entities, World, Resources, Crafting, Traders, Tasks, Misc)
 
 **Live log** is a second workspace tab.
 
@@ -219,7 +218,7 @@ The panel requires a signed-in operator:
 - 12-hour sessions, or 30 days with **Keep me logged in**
 - Change password, sign out everywhere, and (admins) add/remove operators
 
-On first launch the console prints a temporary admin password for **Genis221** (or `SEVENDTD_ADMIN_USERNAME` / `SEVENDTD_ADMIN_PASSWORD` if you set them). Sign in, then change the password under **Accounts**.
+On first launch the console prints a temporary admin password for **Genis221** (or `SEVENDTD_ADMIN_USERNAME` / `SEVENDTD_ADMIN_PASSWORD` if you set them). Sign in, then open **Accounts** in the left rail (under your username / Sign out) to change the password and manage operators.
 
 Reset helper: double-click **`Reset-Admin-Password.cmd`** (sets `SEVENDTD_RESET_ADMIN_PASSWORD=1` for one restart).
 

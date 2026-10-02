@@ -237,7 +237,7 @@ export function createAuthController({ dataDir, onActivity } = {}) {
       console.log(`  Username: ${user.username}`);
       if (generated) {
         console.log(`  Temporary password: ${password}`);
-        console.log("  Sign in, then change this password under Accounts.");
+        console.log("  Sign in, then open Accounts in the left rail to change this password.");
       } else {
         console.log("  Password: (from SEVENDTD_ADMIN_PASSWORD)");
       }
@@ -271,7 +271,7 @@ export function createAuthController({ dataDir, onActivity } = {}) {
       console.log(`  Username: ${username}`);
       if (generated) {
         console.log(`  Temporary password: ${password}`);
-        console.log("  Sign in, then change this password under Accounts.");
+        console.log("  Sign in, then open Accounts in the left rail to change this password.");
       } else {
         console.log("  Password: (from SEVENDTD_ADMIN_PASSWORD)");
       }
