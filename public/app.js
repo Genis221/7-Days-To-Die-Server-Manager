@@ -1353,19 +1353,6 @@ function applyTheme(theme) {
 
 applyTheme(localStorage.getItem("sevendtd-theme") === "light" ? "light" : "dark");
 
-let deferredInstallPrompt = null;
-
-function isStandaloneDisplay() {
-  return window.matchMedia("(display-mode: standalone)").matches
-    || window.navigator.standalone === true;
-}
-
-function showInstallButton(show) {
-  const btn = document.getElementById("btn-install-app");
-  if (!btn) return;
-  btn.classList.toggle("hidden", !show);
-}
-
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
@@ -1375,37 +1362,9 @@ function registerServiceWorker() {
   });
 }
 
-window.addEventListener("beforeinstallprompt", event => {
-  event.preventDefault();
-  deferredInstallPrompt = event;
-  if (!isStandaloneDisplay()) showInstallButton(true);
-});
-
 window.addEventListener("appinstalled", () => {
-  deferredInstallPrompt = null;
-  showInstallButton(false);
   toast("App installed — open it from your home screen", "success");
 });
-
-document.getElementById("btn-install-app")?.addEventListener("click", async () => {
-  if (deferredInstallPrompt) {
-    deferredInstallPrompt.prompt();
-    const choice = await deferredInstallPrompt.userChoice.catch(() => null);
-    deferredInstallPrompt = null;
-    showInstallButton(false);
-    if (choice?.outcome === "accepted") toast("Installing…", "success");
-    return;
-  }
-  toast(
-    "On Android Chrome: menu (⋮) → Install app or Add to Home screen. Use HTTPS or localhost for the full install prompt.",
-    "info"
-  );
-});
-
-if (!isStandaloneDisplay() && !window.isSecureContext) {
-  // HTTP on LAN: Chrome will not fire beforeinstallprompt, but Add to Home Screen still helps.
-  showInstallButton(true);
-}
 
 registerServiceWorker();
 

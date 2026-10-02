@@ -234,19 +234,17 @@ Static UI files stay public; every `/api/*` route except login/status requires a
 
 ## Progressive Web App (Install / Add to Home Screen)
 
-The panel is installable as a PWA:
+The panel is installable as a PWA (browser menu → **Add to Home screen** / **Install app**):
 
 - `public/manifest.webmanifest` — name, theme, standalone display, icons
 - `public/sw.js` — caches the UI shell; `/api/*` always goes to the live server
 - Icons under `public/icons/` (192 / 512 / Apple touch)
 
-**Install app** appears in the left rail when the browser can install (Chrome / Edge install prompt), or as a helper on plain HTTP so you can open Android’s menu.
-
 | How you open the panel | What Android does |
 | --- | --- |
-| `http://127.0.0.1:3240` on the phone (ADB reverse, etc.) | Full **Install app** prompt when criteria are met |
-| `https://…` (reverse proxy / tunnel) | Full **Install app** prompt |
-| `http://192.168.x.x:3240` on LAN | Chrome usually skips the install prompt (not a secure context). Use browser menu → **Add to Home screen** / **Install app** |
+| `http://127.0.0.1:3240` on the phone (ADB reverse, etc.) | Browser can offer Install / Add to Home screen |
+| `https://…` (reverse proxy / tunnel) | Browser can offer Install / Add to Home screen |
+| `http://192.168.x.x:3240` on LAN | Use browser menu → **Add to Home screen** / **Install app** (Chrome often skips the native install prompt on plain HTTP) |
 
 Once installed, it opens fullscreen (standalone) with the DAY 7 icon.
 
