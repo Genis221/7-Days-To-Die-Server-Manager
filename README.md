@@ -105,15 +105,16 @@ Right column (collapsible), top to bottom:
 4. Shutdown / restart  
 5. Automatic start  
 6. Mods  
-7. Admin / telnet / dashboard  
-8. World save  
-9. Remaining XML rules  
-10. Performance  
-11. Land claims  
-12. Dynamic mesh  
-13. World backups  
-14. Config files  
-15. Sandbox categories (Player, Entities, World, Resources, Crafting, Traders, Tasks, Misc)
+7. Accounts (password + operators)  
+8. Admin / telnet / dashboard  
+9. World save  
+10. Remaining XML rules  
+11. Performance  
+12. Land claims  
+13. Dynamic mesh  
+14. World backups  
+15. Config files  
+16. Sandbox categories (Player, Entities, World, Resources, Crafting, Traders, Tasks, Misc)
 
 **Live log** is a second workspace tab.
 
@@ -208,6 +209,30 @@ Checkbox on the left rail. When on, a hidden launcher is written to the Windows 
 
 ---
 
+## Login security
+
+The panel requires a signed-in operator:
+
+- HttpOnly session cookie (`sevendtd_session`)
+- scrypt password hashes under `data/auth/`
+- Rate limit / temporary lock after repeated failures
+- 12-hour sessions, or 30 days with **Keep me logged in**
+- Change password, sign out everywhere, and (admins) add/remove operators
+
+On first launch the console prints a temporary admin password for **Genis221** (or `SEVENDTD_ADMIN_USERNAME` / `SEVENDTD_ADMIN_PASSWORD` if you set them). Sign in, then change the password under **Accounts**.
+
+Reset helper: double-click **`Reset-Admin-Password.cmd`** (sets `SEVENDTD_RESET_ADMIN_PASSWORD=1` for one restart).
+
+| Variable | Purpose |
+| --- | --- |
+| `SEVENDTD_ADMIN_USERNAME` | First / reset admin username (default `Genis221`) |
+| `SEVENDTD_ADMIN_PASSWORD` | First / reset password (random if unset) |
+| `SEVENDTD_RESET_ADMIN_PASSWORD` | `1` / `true` to reset admin on next start |
+
+Static UI files stay public; every `/api/*` route except login/status requires a valid session.
+
+---
+
 ## Progressive Web App (Install / Add to Home Screen)
 
 The panel is installable as a PWA:
@@ -253,6 +278,7 @@ Runtime data (`data/`, including `state.json`) is gitignored.
 ```text
 7 Days To Die Server Manager/
 ├── server.mjs                      # HTTP API + process control
+├── auth.mjs                        # Login sessions + operator accounts
 ├── sandbox.mjs                     # SandboxCode encode/decode
 ├── sandbox-options.json            # V3 sandbox catalog
 ├── dtd-config.mjs                  # XML property list + render
@@ -261,6 +287,7 @@ Runtime data (`data/`, including `state.json`) is gitignored.
 ├── StartSevenDaysManager.ps1
 ├── RestartSevenDaysManager.cmd
 ├── RestartSevenDaysManager.vbs
+├── Reset-Admin-Password.cmd
 ├── tools/
 │   ├── make-pwa-icons.ps1
 │   └── parse-sandbox.mjs
@@ -272,7 +299,7 @@ Runtime data (`data/`, including `state.json`) is gitignored.
 │   ├── manifest.webmanifest
 │   ├── favicon.svg
 │   └── icons/
-└── data/                           # Runtime (gitignored)
+└── data/                           # Runtime (gitignored), includes data/auth/
 ```
 
 ---

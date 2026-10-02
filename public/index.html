@@ -28,8 +28,30 @@
       })();
     </script>
   </head>
-  <body>
+  <body class="auth-locked">
     <div class="grain" aria-hidden="true"></div>
+    <section id="login-gate" class="login-gate" aria-label="Sign in">
+      <form class="login-card" id="login-form">
+        <img class="login-mark" src="/favicon.svg" alt="" width="40" height="40" />
+        <p class="login-kicker">Blood moon control</p>
+        <h1>Sign in</h1>
+        <p class="login-copy">7 Days To Die Server Manager — operators only. Use your own account.</p>
+        <p class="login-error hidden" id="login-error" role="alert"></p>
+        <label class="field">
+          <span>Username</span>
+          <input name="username" autocomplete="username" required maxlength="32" />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <label class="login-remember">
+          <input name="rememberMe" type="checkbox" />
+          <span>Keep me logged in for 30 days</span>
+        </label>
+        <button type="submit" class="btn primary login-submit">Sign in</button>
+      </form>
+    </section>
     <div class="app">
       <aside class="rail">
         <div class="rail-brand">
@@ -45,6 +67,10 @@
             <button type="button" class="tool-btn" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">Change to Light mode</button>
             <button type="button" class="tool-btn" id="btn-copy-settings" title="Copy settings between profiles">Copy Server Settings</button>
             <button type="button" class="tool-btn ghost" id="btn-info" title="About 7 Days To Die Server Manager">About</button>
+          </div>
+          <div class="rail-auth" id="rail-auth" hidden>
+            <span class="rail-auth-user" id="rail-auth-user"></span>
+            <button type="button" class="tool-btn tool-btn-wide" id="btn-logout" title="Sign out of this device">Sign out</button>
           </div>
           <button type="button" class="tool-btn tool-btn-wide hidden" id="btn-install-app" title="Install this panel as an app on this device">Install app</button>
         </div>

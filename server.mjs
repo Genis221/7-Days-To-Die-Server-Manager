@@ -36,6 +36,7 @@ import {
   XML_PROPERTIES,
   xmlBool
 } from "./dtd-config.mjs";
+import { createAuthController } from "./auth.mjs";
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -83,6 +84,13 @@ const runtimes = new Map();
 const importJobs = new Map();
 let saveTimer = null;
 let automationRunning = false;
+const auth = createAuthController({
+  dataDir: DATA_DIR,
+  onActivity: (_type, title, detail) => {
+    if (!state) return;
+    addActivity(detail ? `${title} — ${detail}` : title, "info");
+  }
+});
 
 function nowIso() {
   return new Date().toISOString();
@@ -578,12 +586,13 @@ function lanAddresses() {
 
 function sendJson(res, status, body) {
   const data = JSON.stringify(body);
-  res.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(data),
-    "Cache-Control": "no-store",
-    ...corsHeaders()
-  });
+  if (!res.getHeader("Content-Type")) res.setHeader("Content-Type", "application/json; charset=utf-8");
+  if (!res.getHeader("Cache-Control")) res.setHeader("Cache-Control", "no-store");
+  for (const [key, value] of Object.entries(corsHeaders())) {
+    if (!res.getHeader(key)) res.setHeader(key, value);
+  }
+  if (!res.getHeader("Content-Length")) res.setHeader("Content-Length", Buffer.byteLength(data));
+  res.statusCode = status;
   res.end(data);
 }
 
@@ -659,18 +668,27 @@ async function getRconPublic(server) {
   };
 }
 
-async function publicStateAsync() {
+async function publicStateAsync(req = null) {
   const ordered = [...state.servers].sort((a, b) => a.order - b.order);
   const servers = await Promise.all(ordered.map(async server => {
     await hydrateIcarusFromIni(server);
     return publicServer(server, await getRconPublic(server));
   }));
+  let user = null;
+  if (req) {
+    try {
+      user = auth.publicUser((await auth.requireUser(req)).user);
+    } catch {
+      user = null;
+    }
+  }
   return {
     host: hostPublic(),
     sandboxOptions: SANDBOX_OPTIONS,
     xmlProperties: XML_PROPERTIES,
     servers,
-    activity: state.activity.slice(0, 40)
+    activity: state.activity.slice(0, 40),
+    user
   };
 }
 
@@ -3367,11 +3385,48 @@ async function handleApi(req, res, url) {
 
   const { pathname } = url;
   const method = req.method || "GET";
+  const parts = pathname.split("/").filter(Boolean);
+
+  if (method === "GET" && pathname === "/api/auth/status") {
+    return sendJson(res, 200, await auth.status(req));
+  }
+  if (method === "POST" && pathname === "/api/auth/login") {
+    const body = (await readBody(req)) || {};
+    return sendJson(res, 200, await auth.login(req, res, body));
+  }
+  if (method === "POST" && pathname === "/api/auth/logout") {
+    return sendJson(res, 200, await auth.logout(req, res));
+  }
+  if (method === "POST" && pathname === "/api/auth/logout-all") {
+    return sendJson(res, 200, await auth.logoutEverywhere(req, res));
+  }
+  if (method === "GET" && pathname === "/api/auth/me") {
+    const { user } = await auth.requireUser(req);
+    return sendJson(res, 200, { user: auth.publicUser(user) });
+  }
+  if (method === "GET" && pathname === "/api/auth/users") {
+    return sendJson(res, 200, await auth.listUsers(req));
+  }
+  if (method === "POST" && pathname === "/api/auth/users") {
+    const body = (await readBody(req)) || {};
+    return sendJson(res, 201, await auth.createUser(req, body));
+  }
+  if (parts[0] === "api" && parts[1] === "auth" && parts[2] === "users" && parts[3] && method === "DELETE") {
+    return sendJson(res, 200, await auth.deleteUser(req, parts[3]));
+  }
+  if (method === "POST" && pathname === "/api/auth/change-password") {
+    const body = (await readBody(req)) || {};
+    return sendJson(res, 200, await auth.changePassword(req, body));
+  }
+
+  if (!auth.isPublicApi(pathname, method)) {
+    await auth.requireUser(req);
+  }
 
   if (method === "GET" && pathname === "/api/state") {
     await refreshAllRuntimes({ deep: false });
     scheduleRuntimeRefresh({ deep: true });
-    return sendJson(res, 200, await publicStateAsync());
+    return sendJson(res, 200, await publicStateAsync(req));
   }
 
   if (method === "POST" && pathname === "/api/manager/startup") {
@@ -3930,6 +3985,7 @@ async function syncManagerWindowsStartup() {
 
 async function main() {
   await loadState();
+  await auth.init();
   for (const server of state.servers) runtimeOf(server.id);
   await refreshAllRuntimes({ deep: false });
   scheduleRuntimeRefresh({ deep: true });

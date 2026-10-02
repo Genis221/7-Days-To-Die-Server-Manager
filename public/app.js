@@ -19,6 +19,7 @@ const state = {
   servers: [],
   activity: [],
   activeId: null,
+  user: null,
   pollTimer: null,
   saveTimers: new Map(),
   pendingPatches: new Map(),
@@ -64,13 +65,70 @@ function toast(message, type = "info") {
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (res.status === 401 && path !== "/api/auth/login" && path !== "/api/auth/status") {
+    state.user = null;
+    setSignedIn(false);
+    throw Object.assign(new Error(data.error || "Sign in required."), { status: 401 });
+  }
+  if (!res.ok) throw Object.assign(new Error(data.error || `Request failed (${res.status})`), { status: res.status });
   return data;
+}
+
+function isAdmin() {
+  return state.user?.role === "admin";
+}
+
+function setSignedIn(signedIn) {
+  document.body.classList.toggle("auth-locked", !signedIn);
+  const railAuth = document.getElementById("rail-auth");
+  const railUser = document.getElementById("rail-auth-user");
+  if (railAuth) railAuth.hidden = !signedIn;
+  if (railUser) railUser.textContent = signedIn && state.user?.username
+    ? `${state.user.username} · ${state.user.role || "operator"}`
+    : "";
+  if (!signedIn) {
+    const err = document.getElementById("login-error");
+    if (err && !err.textContent) err.classList.add("hidden");
+    document.getElementById("login-form")?.elements?.username?.focus();
+  }
+}
+
+function showLoginError(message) {
+  const err = document.getElementById("login-error");
+  if (!err) return;
+  err.textContent = message || "";
+  err.classList.toggle("hidden", !message);
+}
+
+async function loadAccountUsers() {
+  const list = document.getElementById("account-list");
+  const adminWrap = document.getElementById("accounts-admin");
+  if (adminWrap) adminWrap.classList.toggle("hidden", !isAdmin());
+  if (!list || !isAdmin()) return;
+  try {
+    const data = await api("/api/auth/users");
+    const users = data.users || [];
+    list.innerHTML = users.length
+      ? users.map(user => `
+          <div class="account-row">
+            <div>
+              <strong>${escapeHtml(user.username)}</strong>
+              <small>${escapeHtml(user.role)}</small>
+            </div>
+            ${user.id === state.user?.id
+              ? "<em>You</em>"
+              : `<button type="button" class="btn danger" data-action="delete-user" data-id="${escapeHtml(user.id)}" data-name="${escapeHtml(user.username)}">Remove</button>`}
+          </div>`).join("")
+      : `<p class="field-hint">No accounts found.</p>`;
+  } catch (err) {
+    list.innerHTML = `<p class="field-hint">${escapeHtml(err.message)}</p>`;
+  }
 }
 
 function activeServer() {
@@ -494,6 +552,28 @@ function renderServer(server) {
                 <button type="button" class="btn secondary" data-action="mod-open-folder">Open Mods folder</button>
               </div>
             `)}
+            ${collapsibleTile("accounts", "Accounts", `
+              <p class="field-hint">Signed in as <strong id="account-signed-as">${escapeHtml(state.user?.username || "—")}</strong> (${escapeHtml(state.user?.role || "operator")}). Passwords must be at least 10 characters.</p>
+              <form id="change-password-form" class="accounts-form">
+                <label class="field"><span>Current password</span><input name="currentPassword" type="password" autocomplete="current-password" required /></label>
+                <label class="field"><span>New password</span><input name="newPassword" type="password" autocomplete="new-password" required minlength="10" /></label>
+                <label class="field"><span>Confirm new password</span><input name="confirmPassword" type="password" autocomplete="new-password" required minlength="10" /></label>
+                <div class="action-row">
+                  <button type="submit" class="btn primary">Change password</button>
+                  <button type="button" class="btn secondary" data-action="logout-all">Sign out everywhere</button>
+                </div>
+              </form>
+              <div id="accounts-admin" class="${state.user?.role === "admin" ? "" : "hidden"}">
+                <p class="field-hint">Admins can add operators. Do not share passwords.</p>
+                <div class="account-list" id="account-list"><p class="field-hint">Loading…</p></div>
+                <form id="create-user-form" class="accounts-form">
+                  <label class="field"><span>Username</span><input name="username" required maxlength="32" pattern="[A-Za-z0-9._\\-]{3,32}" placeholder="operator1" /></label>
+                  <label class="field"><span>Temporary password</span><input name="password" type="password" required minlength="10" autocomplete="new-password" /></label>
+                  <label class="field"><span>Role</span><select name="role"><option value="operator">Operator</option><option value="admin">Admin</option></select></label>
+                  <div class="action-row"><button type="submit" class="btn secondary">Add account</button></div>
+                </form>
+              </div>
+            `)}
             ${collapsibleTile("admin", "Admin / telnet / dashboard", xmlGroup(server, "Admin"))}
             ${collapsibleTile("world", "World save", xmlGroup(server, "World") + xmlGroup(server, "Folders"))}
             ${collapsibleTile("rules", "Remaining xml rules", xmlGroup(server, "Rules") + xmlGroup(server, "Security"))}
@@ -584,6 +664,7 @@ function renderServer(server) {
   connectConsole(server.id);
   loadConfigFiles(server);
   loadModFiles(server);
+  if (state.openSections.has("accounts")) loadAccountUsers();
 }
 
 function configFileListHtml(files, folder) {
@@ -775,6 +856,10 @@ function render() {
 async function refreshState({ silent = false } = {}) {
   try {
     const data = await api("/api/state");
+    if (data.user) {
+      state.user = data.user;
+      setSignedIn(true);
+    }
     const prevFocus = document.activeElement;
     const focusKey = prevFocus?.dataset?.sandbox
       ? `${prevFocus.closest("[data-server-id]")?.dataset.serverId}:sandbox:${prevFocus.dataset.sandbox}`
@@ -1457,6 +1542,7 @@ workspace.addEventListener("click", async event => {
     tile?.classList.toggle("is-open", open);
     const btn = tile?.querySelector(".tile-toggle");
     if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open && id === "accounts") loadAccountUsers();
     return;
   }
 
@@ -1526,6 +1612,25 @@ workspace.addEventListener("click", async event => {
     } else if (action === "mod-open-folder") {
       await api(`/api/servers/${server.id}/mods/open-folder`, { method: "POST", body: {} });
       toast("Opened Mods folder");
+    } else if (action === "logout-all") {
+      const ok = await confirmDanger("Sign out everywhere", "End every signed-in session for your account on all devices?");
+      if (!ok) return;
+      await api("/api/auth/logout-all", { method: "POST", body: {} });
+      if (state.pollTimer) {
+        clearInterval(state.pollTimer);
+        state.pollTimer = null;
+      }
+      state.user = null;
+      setSignedIn(false);
+      toast("Signed out everywhere");
+    } else if (action === "delete-user") {
+      const id = event.target.closest("[data-id]")?.dataset.id;
+      const name = event.target.closest("[data-name]")?.dataset.name || "this account";
+      const ok = await confirmDanger("Remove account", `Delete operator “${name}”? They will be signed out immediately.`);
+      if (!ok) return;
+      await api(`/api/auth/users/${id}`, { method: "DELETE" });
+      toast(`Removed ${name}`);
+      await loadAccountUsers();
     } else if (action === "attach-install") {
       const target = String(server.install || "").trim();
       if (!target) {
@@ -1627,6 +1732,7 @@ workspace.addEventListener("change", async event => {
       toast(`Uploading ${file.name}…`);
       const res = await fetch(`/api/servers/${server.id}/mods/upload`, {
         method: "POST",
+        credentials: "same-origin",
         headers: {
           "Content-Type": "application/octet-stream",
           "X-Filename": encodeURIComponent(file.name)
@@ -1649,6 +1755,111 @@ workspace.addEventListener("change", async event => {
   if (el?.dataset?.sandbox || el?.dataset?.xml || el?.tagName === "SELECT") applyControlPatch(el);
 });
 
-await refreshState();
-state.busy.clear();
-state.pollTimer = setInterval(() => refreshState({ silent: true }), 2000);
+document.getElementById("login-form")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector('button[type="submit"]');
+  if (submit) submit.disabled = true;
+  showLoginError("");
+  try {
+    const result = await api("/api/auth/login", {
+      method: "POST",
+      body: {
+        username: form.elements.username.value.trim(),
+        password: form.elements.password.value,
+        rememberMe: form.elements.rememberMe.checked
+      }
+    });
+    state.user = result.user;
+    form.reset();
+    setSignedIn(true);
+    toast(result.rememberMe ? "Signed in (kept logged in for 30 days)" : "Signed in", "success");
+    await refreshState();
+    state.busy.clear();
+    if (!state.pollTimer) state.pollTimer = setInterval(() => refreshState({ silent: true }), 2000);
+  } catch (err) {
+    showLoginError(err.message || "Could not sign in.");
+    setSignedIn(false);
+  } finally {
+    if (submit) submit.disabled = false;
+  }
+});
+
+document.getElementById("btn-logout")?.addEventListener("click", async () => {
+  try {
+    await api("/api/auth/logout", { method: "POST", body: {} });
+  } catch { /* still clear local session */ }
+  if (state.pollTimer) {
+    clearInterval(state.pollTimer);
+    state.pollTimer = null;
+  }
+  state.user = null;
+  setSignedIn(false);
+  toast("Signed out");
+});
+
+workspace.addEventListener("submit", async event => {
+  if (event.target?.id === "change-password-form") {
+    event.preventDefault();
+    const form = event.target;
+    if (form.elements.newPassword.value !== form.elements.confirmPassword.value) {
+      toast("New password and confirmation do not match", "error");
+      return;
+    }
+    try {
+      await api("/api/auth/change-password", {
+        method: "POST",
+        body: {
+          currentPassword: form.elements.currentPassword.value,
+          newPassword: form.elements.newPassword.value
+        }
+      });
+      form.reset();
+      toast("Password updated", "success");
+    } catch (err) {
+      toast(err.message, "error");
+    }
+    return;
+  }
+  if (event.target?.id === "create-user-form") {
+    event.preventDefault();
+    const form = event.target;
+    try {
+      await api("/api/auth/users", {
+        method: "POST",
+        body: {
+          username: form.elements.username.value.trim(),
+          password: form.elements.password.value,
+          role: form.elements.role.value
+        }
+      });
+      form.reset();
+      toast("Account created", "success");
+      await loadAccountUsers();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+});
+
+async function boot() {
+  try {
+    const status = await api("/api/auth/status");
+    if (!status.authenticated) {
+      state.user = null;
+      setSignedIn(false);
+      return;
+    }
+    state.user = status.user;
+    setSignedIn(true);
+    await refreshState();
+    state.busy.clear();
+    state.pollTimer = setInterval(() => refreshState({ silent: true }), 2000);
+  } catch (err) {
+    state.user = null;
+    setSignedIn(false);
+    showLoginError(err.message || "Could not reach the manager.");
+  }
+}
+
+await boot();
