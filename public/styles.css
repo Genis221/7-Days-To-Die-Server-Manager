@@ -423,24 +423,38 @@ html[data-theme="light"] .host-meter-track {
   background: rgba(0, 0, 0, 0.08);
   border-color: var(--line);
 }
-.host-meter-track > i:not(.ram-seg) {
+.host-meter[data-meter="cpu"] .host-meter-track > i {
   display: block;
   height: 100%;
   width: 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, #ff5a2a, #ffb347 45%, #ffe08a);
-  box-shadow: 0 0 10px rgba(255, 138, 64, 0.55);
-  transition: width 0.45s ease, background 0.3s ease;
+  background: linear-gradient(90deg, #3f8860, #5fbf84);
+  box-shadow: 0 0 10px rgba(95, 191, 132, 0.45);
+  transition: width 0.45s ease, background 0.3s ease, box-shadow 0.3s ease;
 }
-html[data-theme="light"] .host-meter-track > i:not(.ram-seg) {
+html[data-theme="light"] .host-meter[data-meter="cpu"] .host-meter-track > i {
   box-shadow: none;
-  background: linear-gradient(90deg, #e24a1c, #f0c27a);
+  background: linear-gradient(90deg, #3f8860, #5fbf84);
 }
-.host-meter[data-level="warn"] .host-meter-track > i:not(.ram-seg) {
-  background: linear-gradient(90deg, #ffc107, #ffe566);
+.host-meter[data-meter="cpu"][data-level="ok"] .host-meter-track > i {
+  background: linear-gradient(90deg, #3f8860, #5fbf84);
+  box-shadow: 0 0 10px rgba(95, 191, 132, 0.45);
 }
-.host-meter[data-level="hot"] .host-meter-track > i:not(.ram-seg) {
-  background: linear-gradient(90deg, #ff5a5a, #ff9a6a);
+.host-meter[data-meter="cpu"][data-level="warn"] .host-meter-track > i {
+  background: linear-gradient(90deg, #c48a2e, #e0b46a);
+  box-shadow: 0 0 10px rgba(224, 180, 106, 0.5);
+}
+.host-meter[data-meter="cpu"][data-level="hot"] .host-meter-track > i {
+  background: linear-gradient(90deg, #c25648, #e08a7c);
+  box-shadow: 0 0 10px rgba(224, 138, 124, 0.55);
+}
+html[data-theme="light"] .host-meter[data-meter="cpu"][data-level="warn"] .host-meter-track > i {
+  box-shadow: none;
+  background: linear-gradient(90deg, #c48a2e, #e0b46a);
+}
+html[data-theme="light"] .host-meter[data-meter="cpu"][data-level="hot"] .host-meter-track > i {
+  box-shadow: none;
+  background: linear-gradient(90deg, #c25648, #e08a7c);
 }
 .host-ram-track {
   display: flex;

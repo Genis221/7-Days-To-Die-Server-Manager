@@ -758,12 +758,12 @@ function fromTimeInput(value) {
   return String(value || "09:00").slice(0, 5);
 }
 
-function meterLevel(percent) {
+function cpuMeterLevel(percent) {
   const n = Number(percent);
   if (!Number.isFinite(n)) return "";
-  if (n >= 90) return "hot";
-  if (n >= 75) return "warn";
-  return "";
+  if (n >= 75) return "hot";
+  if (n >= 50) return "warn";
+  return "ok";
 }
 
 function updateHostMeters(resources) {
@@ -786,7 +786,7 @@ function updateHostMeters(resources) {
     const pct = Math.max(0, Math.min(100, Number(cpu)));
     cpuBits.push(`${pct.toFixed(pct >= 10 ? 0 : 1)}%`);
     if (cpuBar) cpuBar.style.width = `${pct}%`;
-    if (cpuMeter) cpuMeter.dataset.level = meterLevel(pct);
+    if (cpuMeter) cpuMeter.dataset.level = cpuMeterLevel(pct);
   }
   if (resources.cpuCores) cpuBits.push(`${resources.cpuCores}c`);
   if (resources.cpuGhzLabel) cpuBits.push(resources.cpuGhzLabel);
@@ -797,8 +797,8 @@ function updateHostMeters(resources) {
   const ramBits = [];
   if (Number.isFinite(ramPct)) {
     ramBits.push(`${ramPct.toFixed(ramPct >= 10 ? 0 : 1)}%`);
-    if (ramMeter) ramMeter.dataset.level = meterLevel(ramPct);
   }
+  if (ramMeter) ramMeter.dataset.level = "";
   if (resources.ramMhzLabel) ramBits.push(resources.ramMhzLabel);
   ramLabel.textContent = ramBits.join(" · ") || "—";
 
