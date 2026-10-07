@@ -89,7 +89,7 @@ V3+ gameplay lives in **SandboxCode**. The UI also keeps matching **legacy V2 XM
 
 ## Overview layout
 
-Left of the workspace: **This PC** (CPU % / cores / GHz and RAM % / used / free / total / MHz), **Start with Windows**, world tabs.
+Left of the workspace: **This PC** (CPU % / cores / GHz and a color-stacked RAM bar: green Minecraft, amber Icarus, red 7 Days, blue ARK, gray System), **Start with Windows**, world tabs.
 
 Under **Session**:
 
