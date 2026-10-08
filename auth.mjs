@@ -304,11 +304,13 @@ export function createAuthController({ dataDir, onActivity } = {}) {
       return null;
     }
     const nowMs = Date.now();
+    const prevSeen = Date.parse(session.lastSeenAt || 0) || 0;
     session.lastSeenAt = new Date(nowMs).toISOString();
     if (session.rememberMe) {
       session.expiresAt = new Date(nowMs + REMEMBER_DAYS * 24 * 60 * 60 * 1000).toISOString();
     }
-    await saveSessions();
+    // Touching lastSeen on every /api/state poll was rewriting sessions.json twice a second.
+    if (nowMs - prevSeen >= 60_000) await saveSessions();
     return { user, session, token };
   }
 

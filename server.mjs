@@ -668,18 +668,25 @@ async function getRconPublic(server) {
   };
 }
 
-async function publicStateAsync(req = null) {
+let lastXmlHydrateAt = 0;
+
+async function maybeHydrateServersFromDisk(maxAgeMs = 30_000) {
+  if (Date.now() - lastXmlHydrateAt < maxAgeMs) return;
+  lastXmlHydrateAt = Date.now();
+  await Promise.all(state.servers.map(server => hydrateIcarusFromIni(server)));
+}
+
+async function publicStateAsync(req = null, user = null) {
   const ordered = [...state.servers].sort((a, b) => a.order - b.order);
-  const servers = await Promise.all(ordered.map(async server => {
-    await hydrateIcarusFromIni(server);
-    return publicServer(server, await getRconPublic(server));
-  }));
-  let user = null;
-  if (req) {
+  const servers = await Promise.all(ordered.map(async server => (
+    publicServer(server, await getRconPublic(server))
+  )));
+  let publicUser = user ? auth.publicUser(user) : null;
+  if (!publicUser && req) {
     try {
-      user = auth.publicUser((await auth.requireUser(req)).user);
+      publicUser = auth.publicUser((await auth.requireUser(req)).user);
     } catch {
-      user = null;
+      publicUser = null;
     }
   }
   return {
@@ -688,7 +695,7 @@ async function publicStateAsync(req = null) {
     xmlProperties: XML_PROPERTIES,
     servers,
     activity: state.activity.slice(0, 40),
-    user
+    user: publicUser
   };
 }
 
@@ -928,6 +935,13 @@ async function sampleHostRamBreakdown() {
       listWindowsProcesses(),
       listListeningPidsPreferMinecraft()
     ]);
+    // Reuse this scan for the lighter 7DTD process cache so we don't spawn another PowerShell soon after.
+    processCache = {
+      at: Date.now(),
+      procs: procs
+        .filter(proc => /7daystodie/i.test(String(proc.name || "")))
+        .map(proc => ({ pid: proc.pid, exe: proc.executablePath || "" }))
+    };
     const byPid = new Map(procs.map(proc => [proc.pid, proc]));
     const totals = { minecraft: 0, icarus: 0, sevendays: 0, ark: 0 };
     const counted = new Set();
@@ -2255,12 +2269,14 @@ let runtimeRefreshPromise = null;
 async function listArkProcesses() {
   if (process.platform !== "win32") return [];
   try {
+    // Filter in WMI — much cheaper than enumerating every process then Where-Object.
     const { stdout } = await execFileAsync(
       "powershell.exe",
       [
         "-NoProfile",
+        "-NonInteractive",
         "-Command",
-        "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq '7DaysToDieServer.exe' -or $_.Name -eq '7DaysToDie.exe' } | Select-Object ProcessId,ExecutablePath | ConvertTo-Json -Compress"
+        "Get-CimInstance Win32_Process -Filter \"Name = '7DaysToDieServer.exe' OR Name = '7DaysToDie.exe'\" | Select-Object ProcessId,ExecutablePath | ConvertTo-Json -Compress"
       ],
       { windowsHide: true, timeout: 5000, maxBuffer: 2 * 1024 * 1024 }
     );
@@ -2279,7 +2295,7 @@ async function listArkProcesses() {
   }
 }
 
-async function getArkProcessesCached(maxAgeMs = 2500) {
+async function getArkProcessesCached(maxAgeMs = 5000) {
   if (Date.now() - processCache.at < maxAgeMs) return processCache.procs;
   processCache.procs = await listArkProcesses();
   processCache.at = Date.now();
@@ -2480,7 +2496,8 @@ async function refreshRuntime(server, { deep = false, procs = null } = {}) {
 }
 
 async function refreshAllRuntimes({ deep = false } = {}) {
-  const procs = await getArkProcessesCached(deep ? 0 : 2500);
+  if (deep) await maybeHydrateServersFromDisk(30_000);
+  const procs = await getArkProcessesCached(deep ? 0 : 5000);
   await Promise.all(state.servers.map(server => refreshRuntime(server, { deep, procs })));
 }
 
@@ -3633,14 +3650,15 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, await auth.changePassword(req, body));
   }
 
+  let authedUser = null;
   if (!auth.isPublicApi(pathname, method)) {
-    await auth.requireUser(req);
+    authedUser = (await auth.requireUser(req)).user;
   }
 
   if (method === "GET" && pathname === "/api/state") {
+    // Keep the UI poll cheap. Deep A2S/log/RCON work runs on the background timer only.
     await refreshAllRuntimes({ deep: false });
-    scheduleRuntimeRefresh({ deep: true });
-    return sendJson(res, 200, await publicStateAsync(req));
+    return sendJson(res, 200, await publicStateAsync(req, authedUser));
   }
 
   if (method === "POST" && pathname === "/api/manager/startup") {
@@ -4208,13 +4226,14 @@ async function main() {
   setInterval(() => {
     try { refreshHostResources(); } catch { /* ignore */ }
   }, 2000);
+  // Full Win32_Process + netstat sampling is expensive — keep it infrequent.
   setInterval(() => {
     sampleHostRamBreakdown().catch(() => {});
-  }, 3000);
+  }, 15_000);
 
   setInterval(() => {
     scheduleRuntimeRefresh({ deep: true });
-  }, 8000);
+  }, 15_000);
 
   setInterval(() => {
     automationTick().catch(err => console.error("[automation]", err));

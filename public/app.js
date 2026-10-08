@@ -1732,7 +1732,7 @@ document.getElementById("login-form")?.addEventListener("submit", async event =>
     toast(result.rememberMe ? "Signed in (kept logged in for 30 days)" : "Signed in", "success");
     await refreshState();
     state.busy.clear();
-    if (!state.pollTimer) state.pollTimer = setInterval(() => refreshState({ silent: true }), 2000);
+    if (!state.pollTimer) state.pollTimer = setInterval(() => refreshState({ silent: true }), 4000);
   } catch (err) {
     showLoginError(err.message || "Could not sign in.");
     setSignedIn(false);
@@ -1844,7 +1844,7 @@ async function boot() {
     setSignedIn(true);
     await refreshState();
     state.busy.clear();
-    state.pollTimer = setInterval(() => refreshState({ silent: true }), 2000);
+    state.pollTimer = setInterval(() => refreshState({ silent: true }), 4000);
   } catch (err) {
     state.user = null;
     setSignedIn(false);
